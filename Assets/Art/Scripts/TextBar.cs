@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class TextBar : MonoBehaviour
 {
@@ -12,6 +13,8 @@ public class TextBar : MonoBehaviour
     public CanvasGroup canvasGroup;
     public RectTransform bg;
     public float moveTime = 0.2f;
+    public GameObject BLOCKER;
+    public GameObject button;
 
     private Coroutine timerCoroutine;
     private bool timerStarted = false;
@@ -31,16 +34,16 @@ public class TextBar : MonoBehaviour
         Sequence s = DOTween.Sequence();
         s.Append(rt.DOAnchorPos(new Vector2(rt.anchoredPosition.x, -rt.rect.height / 2), moveTime)
             .SetEase(Ease.OutSine));
-        s.Join(DOTween.To(() => canvasGroup.alpha, x => canvasGroup.alpha = x, 0.0f, moveTime/2)
+        s.Join(DOTween.To(() => canvasGroup.alpha, x => canvasGroup.alpha = x, 0.0f, moveTime / 2)
             .SetEase(Ease.OutQuart));
-        s.AppendCallback(()=>
+        s.AppendCallback(() =>
         {
             rt.anchoredPosition = new Vector2(rt.anchoredPosition.x, rt.rect.height / 2);
             text.text = str;
         });
         s.Append(rt.DOAnchorPos(new Vector2(rt.anchoredPosition.x, 0), moveTime)
             .SetEase(Ease.OutSine));
-        s.Join(DOTween.To(() => canvasGroup.alpha, x => canvasGroup.alpha = x, 1.0f, moveTime/2)
+        s.Join(DOTween.To(() => canvasGroup.alpha, x => canvasGroup.alpha = x, 1.0f, moveTime / 2)
             .SetEase(Ease.InQuart));
     }
 
@@ -49,7 +52,7 @@ public class TextBar : MonoBehaviour
         timerStarted = true;
         var initial = bg.sizeDelta;
         var target = new Vector2(initial.x + 100, initial.y);
-        bg.DOSizeDelta(target, 0.5f).OnComplete(()=>timerCoroutine = StartCoroutine(Countdown(seconds)));
+        bg.DOSizeDelta(target, 0.5f).OnComplete(() => timerCoroutine = StartCoroutine(Countdown(seconds)));
     }
 
     public IEnumerator Countdown(int seconds)
@@ -60,6 +63,7 @@ public class TextBar : MonoBehaviour
             yield return new WaitForSeconds(1);
             seconds--;
         }
+
         EndTimer();
     }
 
@@ -71,10 +75,31 @@ public class TextBar : MonoBehaviour
         {
             StopCoroutine(timerCoroutine);
         }
+
         timerText.text = "";
         var initial = bg.sizeDelta;
         var target = new Vector2(initial.x - 100, initial.y);
         bg.DOSizeDelta(target, 0.5f);
         timerStarted = false;
+    }
+
+    public void Terminate()
+    {
+        EndTimer();
+        timerText.text = "";
+        FindObjectOfType<Authenticator>().isDead = true;
+        BLOCKER.SetActive(true);
+        var cg = BLOCKER.GetComponent<CanvasGroup>();
+        DOTween.To(() => cg.alpha, x => cg.alpha = x, 1, 0.5f);
+        text.rectTransform.DOSizeDelta(text.rectTransform.sizeDelta + 100 * Vector2.one, 0.5f);
+        bg.DOSizeDelta(bg.sizeDelta + 100 * Vector2.one, 0.5f)
+            .OnComplete(()=>
+            {
+                UpdateText(
+                    "Authentication error. " +
+                    "Please check your internet connection and ensure " +
+                    "that you have actually purchased the game.");
+                button.SetActive(true);
+            });
     }
 }

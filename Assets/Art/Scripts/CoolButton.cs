@@ -3,6 +3,7 @@ using DG.Tweening;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(Button))]
@@ -80,6 +81,6 @@ public class CoolButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
     public void OnPointerUp()
     {
         top.DOAnchorPos(initialAnchoredPos, 0.1f);
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
-
 }

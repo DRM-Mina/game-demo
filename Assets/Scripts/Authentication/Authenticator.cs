@@ -1,3 +1,5 @@
+using System;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +16,7 @@ public class Authenticator : MonoBehaviour
     private static readonly HttpClient Client = new();
     private int _determinedSessionId = -1;
     private int animationDelay = 400;
+    [HideInInspector] public bool isDead = false;
 
     private void Start()
     {
@@ -24,11 +27,19 @@ public class Authenticator : MonoBehaviour
     {
         await Task.Delay(500 + animationDelay);
         
-        textBar.UpdateText("Gathering identifier data...");
         IdentifierData data = new IdentifierData();
-        await data.GetData();
-        textBar.UpdateText("Identifier data collected.");
-        
+        try
+        {
+            textBar.UpdateText("Gathering identifier data...");
+            await data.GetData();
+            textBar.UpdateText("Identifier data collected.");
+        }
+        catch (Exception e)
+        {
+            textBar.Terminate();
+            return;
+        }
+
         await Task.Delay(500 + animationDelay);
         textBar.UpdateText("CPUID: " + data.cpuId);
         await Task.Delay(100 + animationDelay);
@@ -42,19 +53,37 @@ public class Authenticator : MonoBehaviour
         await Task.Delay(100 + animationDelay);
         textBar.UpdateText("MAC2: " + data.macAddress[1]);
         await Task.Delay(100 + animationDelay);
-        
-        textBar.UpdateText("Calculating hash...");
-        string hash = await GetHash(data);
-        textBar.UpdateText("Hash calculated.");
-        await Task.Delay(200 + animationDelay);
-        textBar.UpdateText("Hash: " + hash);
-        
-        await Task.Delay(500 + animationDelay);
-        textBar.UpdateText("Getting current session...");
-        var session = await GetCurrentSession(hash);
-        textBar.UpdateText("Current session here.");
-        await Task.Delay(200 + animationDelay);
-        textBar.UpdateText("Session ID: " + session);
+
+        string hash = "";
+        try
+        {
+            textBar.UpdateText("Calculating hash...");
+            hash = await GetHash(data);
+            textBar.UpdateText("Hash calculated.");
+            await Task.Delay(200 + animationDelay);
+            textBar.UpdateText("Hash: " + hash);
+        }
+        catch (Exception e)
+        {
+            textBar.Terminate();
+            return;
+        }
+
+        int session = -1;
+        try
+        {
+            await Task.Delay(500 + animationDelay);
+            textBar.UpdateText("Getting current session...");
+            session = await GetCurrentSession(hash);
+            textBar.UpdateText("Current session here.");
+            await Task.Delay(200 + animationDelay);
+            textBar.UpdateText("Session ID: " + session);
+        }
+        catch (Exception e)
+        {
+            textBar.Terminate();
+            return;
+        }
         
         await Task.Delay(200 + animationDelay);
         _determinedSessionId = Random.Range(2, int.MaxValue);
@@ -69,9 +98,35 @@ public class Authenticator : MonoBehaviour
         
         var dataS = JsonConvert.SerializeObject(newRandomSession);
         StringContent content = new StringContent(dataS, Encoding.UTF8, "application/json");
+        
+        
+        int maxRetries = 5;
+        int retryDelayMs = 1000;
 
-        await Client.PostAsync(Constants.ProverURL, content);
-        textBar.UpdateText("New session sent.");
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
+                if (response.StatusCode == HttpStatusCode.InternalServerError)
+                {
+                    throw new Exception("Server returned 500 status code.");
+                }
+                textBar.UpdateText("New session sent.");
+                break;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error: {e.Message}");
+                if (retry == maxRetries - 1)
+                {
+                    textBar.Terminate();
+                    return;
+                }
+                await Task.Delay(retryDelayMs);
+            }
+        }
+
         
         await Task.Delay(200 + animationDelay);
         textBar.StartTimer(300);
@@ -79,13 +134,20 @@ public class Authenticator : MonoBehaviour
         while(Time.time - startTime < 300f)
         {
             textBar.UpdateText("Getting Current Session...");
-            var id = await GetCurrentSession(hash);
-            Debug.Log("NEW ID:" + id);
-            if (_determinedSessionId == id)
+            int id;
+            try
             {
-                textBar.UpdateText("SUCCESS");
-                textBar.EndTimer();
-                return;
+                id = await GetCurrentSession(hash);
+                Debug.Log("NEW ID:" + id);
+                if (_determinedSessionId == id)
+                {
+                    textBar.UpdateText("SUCCESS");
+                    textBar.EndTimer();
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
             }
             await Task.Delay(animationDelay);
             textBar.UpdateText("ID is not same. Retrying...");
@@ -132,12 +194,36 @@ public class Authenticator : MonoBehaviour
     public async Task<string> GetHash(IdentifierData data)
     {
         var dataS = JsonConvert.SerializeObject(data);
-        var contentS = JsonConvert.SerializeObject( new {rawIdentifiers=dataS });
+        var contentS = JsonConvert.SerializeObject(new { rawIdentifiers = dataS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        var response = await Client.PostAsync(Constants.ProverURLHash, content);
+        int maxRetries = 10;
+        int retryDelayMs = 1000;
 
-        var responseString = await response.Content.ReadAsStringAsync();
-        return responseString;
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                var response = await Client.PostAsync(Constants.ProverURLHash, content);
+
+                var responseString = await response.Content.ReadAsStringAsync();
+
+                return responseString;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error: {e.Message}");
+
+                if (retry == maxRetries - 1)
+                {
+                    throw;
+                }
+
+                await Task.Delay(retryDelayMs);
+            }
+        }
+
+        return null;
     }
+
 }

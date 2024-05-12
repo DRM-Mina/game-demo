@@ -3,8 +3,11 @@ using UnityEngine;
 
 public class BallMover : MonoBehaviour
 {
+    private Authenticator auth;
+    private Tween tw;
     void Start()
     {
+        auth = FindObjectOfType<Authenticator>();
         transform.position = new Vector3(5, 0, 0);
         Sequence s = DOTween.Sequence();
         //move ball from right to left
@@ -14,10 +17,14 @@ public class BallMover : MonoBehaviour
         //loop the sequence
         s.SetLoops(-1, LoopType.Yoyo);
     }
-
-    // Update is called once per frame
+    
     void Update()
     {
-        
+        if (Input.GetMouseButtonDown(0) && !auth.isDead)
+        {
+            tw?.Complete();
+            tw = transform.DOPunchScale(Vector3.one * 1, 0.6f, 5, 0.5f);
+        }
     }
+        
 }
