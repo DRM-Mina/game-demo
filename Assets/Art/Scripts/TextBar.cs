@@ -15,6 +15,7 @@ public class TextBar : MonoBehaviour
     public float moveTime = 0.2f;
     public GameObject BLOCKER;
     public GameObject button;
+    public GameObject success;
 
     private Coroutine timerCoroutine;
     private bool timerStarted = false;
@@ -100,5 +101,11 @@ public class TextBar : MonoBehaviour
                 UpdateText(error);
                 button.SetActive(true);
             });
+    }
+
+    public void Success()
+    {
+        UpdateText("GREAT SUCCESS");
+        success.SetActive(true);
     }
 }

@@ -156,7 +156,7 @@ public class Authenticator : MonoBehaviour
                 Debug.Log("NEW ID:" + id);
                 if (_determinedSessionId == id)
                 {
-                    textBar.UpdateText("SUCCESS");
+                    textBar.Success();
                     textBar.EndTimer();
                     return;
                 }
