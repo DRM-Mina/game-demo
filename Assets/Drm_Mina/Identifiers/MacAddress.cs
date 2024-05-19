@@ -14,6 +14,7 @@ namespace Drm_Mina.Identifiers
             }
 
             Value = macAddress.Replace(":", "").ToUpper();
+            Value = macAddress.Replace("-", "").ToUpper();
         }
 
         public sealed override string Value { get; set; }

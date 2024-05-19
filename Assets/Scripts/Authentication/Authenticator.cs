@@ -113,7 +113,7 @@ public class Authenticator : MonoBehaviour
                 HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
-                    throw new Exception("Server returned  status code.");
+                    throw new ApplicationException();
                 }
                 if(response.StatusCode != HttpStatusCode.OK)
                 {
@@ -124,13 +124,21 @@ public class Authenticator : MonoBehaviour
             }
             catch (Exception e)
             {
-                Console.WriteLine($"Error: {e.Message}");
-                if (retry == maxRetries - 1)
+                if (e is ApplicationException)
                 {
-                    textBar.Terminate();
+                    textBar.UpdateText("Prover is not ready. Steady lads...");
+                    if (retry == maxRetries - 1)
+                    {
+                        textBar.Terminate();
+                        return;
+                    }
+                    await Task.Delay(retryDelayMs + animationDelay);
+                }
+                else
+                {
+                    textBar.Terminate("Your device may not be compatible with our prover, or your internet connection is down. Please try again later.");
                     return;
                 }
-                await Task.Delay(retryDelayMs);
             }
         }
 

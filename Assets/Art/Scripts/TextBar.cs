@@ -83,7 +83,9 @@ public class TextBar : MonoBehaviour
         timerStarted = false;
     }
 
-    public void Terminate()
+    public void Terminate(string error = "Authentication error. " +
+                                        "Please check your internet connection and ensure " +
+                                        "that you have actually purchased the game.")
     {
         EndTimer();
         timerText.text = "";
@@ -95,10 +97,7 @@ public class TextBar : MonoBehaviour
         bg.DOSizeDelta(bg.sizeDelta + 100 * Vector2.one, 0.5f)
             .OnComplete(()=>
             {
-                UpdateText(
-                    "Authentication error. " +
-                    "Please check your internet connection and ensure " +
-                    "that you have actually purchased the game.");
+                UpdateText(error);
                 button.SetActive(true);
             });
     }
