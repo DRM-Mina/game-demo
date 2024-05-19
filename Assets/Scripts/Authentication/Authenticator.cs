@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
+using Drm_Mina;
 using UnityEngine;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -193,37 +194,9 @@ public class Authenticator : MonoBehaviour
 
     public async Task<string> GetHash(IdentifierData data)
     {
-        var dataS = JsonConvert.SerializeObject(data);
-        var contentS = JsonConvert.SerializeObject(new { rawIdentifiers = dataS });
-        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-
-        int maxRetries = 10;
-        int retryDelayMs = 1000;
-
-        for (int retry = 0; retry < maxRetries; retry++)
-        {
-            try
-            {
-                var response = await Client.PostAsync(Constants.ProverURLHash, content);
-
-                var responseString = await response.Content.ReadAsStringAsync();
-
-                return responseString;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Error: {e.Message}");
-
-                if (retry == maxRetries - 1)
-                {
-                    throw;
-                }
-
-                await Task.Delay(retryDelayMs);
-            }
-        }
-
-        return null;
+        var device = new Device(data);
+        var hash = await device.Hash();
+        return hash;
     }
 
 }

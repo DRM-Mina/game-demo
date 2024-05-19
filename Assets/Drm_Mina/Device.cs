@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Drm_Mina.Identifiers;
 
 namespace Drm_Mina
@@ -27,6 +28,17 @@ namespace Drm_Mina
             _diskSerial = new Serial(diskSerial);
         }
 
+        public Device(IdentifierData data)
+        {
+            _cpuId = new CpuId(data.cpuId);
+            _systemSerial = new Serial(data.systemSerial);
+            _uuid = new UniversallyUniqueId(data.systemUUID);
+            _baseBoardSerial = new Serial(data.baseboardSerial);
+            _ethernetMac = new MacAddress(data.macAddress[0]);
+            _wifiMac = new MacAddress(data.macAddress[1]);
+            _diskSerial = new Serial(data.diskSerial);
+        }
+
         private Field[] HashInputs()
         {
             var input = new List<Field>();
@@ -40,7 +52,7 @@ namespace Drm_Mina
             return input.ToArray();
         }
 
-        public string Hash()
+        public async Task<string> Hash()
         {
             var inputs = HashInputs();
             var hash = Poseidon.Hash(inputs);
