@@ -20,14 +20,6 @@ public class TextBar : MonoBehaviour
     private Coroutine timerCoroutine;
     private bool timerStarted = false;
 
-    private void Update()
-    {
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            StartTimer(300);
-        }
-    }
-
     public void UpdateText(string str)
     {
         Debug.Log(str);
@@ -105,7 +97,7 @@ public class TextBar : MonoBehaviour
 
     public void Success()
     {
-        UpdateText("GREAT SUCCESS");
+        UpdateText("GREAT SUCCESS!");
         success.SetActive(true);
     }
 }

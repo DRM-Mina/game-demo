@@ -126,13 +126,14 @@ public class Authenticator : MonoBehaviour
             {
                 if (e is ApplicationException)
                 {
-                    textBar.UpdateText("Prover is not ready. Steady lads...");
+                    textBar.UpdateText("Prover is not ready, steady lads...");
                     if (retry == maxRetries - 1)
                     {
                         textBar.Terminate();
                         return;
                     }
                     await Task.Delay(retryDelayMs + animationDelay);
+                    textBar.UpdateText("Sending New Session with ID: " + _determinedSessionId);
                 }
                 else
                 {
