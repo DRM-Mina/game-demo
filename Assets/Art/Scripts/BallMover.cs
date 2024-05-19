@@ -20,7 +20,7 @@ public class BallMover : MonoBehaviour
     
     void Update()
     {
-        if (Input.GetMouseButtonDown(0) && !auth.isDead)
+        if (Input.GetKeyDown(KeyCode.Space) && !auth.isDead)
         {
             tw?.Complete();
             tw = transform.DOPunchScale(Vector3.one * 1, 0.6f, 5, 0.5f);
