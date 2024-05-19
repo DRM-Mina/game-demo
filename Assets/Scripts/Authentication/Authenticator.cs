@@ -37,6 +37,7 @@ public class Authenticator : MonoBehaviour
         }
         catch (Exception e)
         {
+            Debug.Log(e);
             textBar.Terminate();
             return;
         }
@@ -59,7 +60,8 @@ public class Authenticator : MonoBehaviour
         try
         {
             textBar.UpdateText("Calculating hash...");
-            hash = await GetHash(data);
+            hash = GetHash(data);
+            await Task.Delay(100 + animationDelay);
             textBar.UpdateText("Hash calculated.");
             await Task.Delay(200 + animationDelay);
             textBar.UpdateText("Hash: " + hash);
@@ -109,9 +111,13 @@ public class Authenticator : MonoBehaviour
             try
             {
                 HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
-                if (response.StatusCode == HttpStatusCode.InternalServerError)
+                if (response.StatusCode == HttpStatusCode.Processing)
                 {
-                    throw new Exception("Server returned 500 status code.");
+                    throw new Exception("Server returned  status code.");
+                }
+                if(response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new Exception("Server returned  status code.");
                 }
                 textBar.UpdateText("New session sent.");
                 break;
@@ -192,10 +198,10 @@ public class Authenticator : MonoBehaviour
         return (int)innerObj["value"];;
     }
 
-    public async Task<string> GetHash(IdentifierData data)
+    public string GetHash(IdentifierData data)
     {
         var device = new Device(data);
-        var hash = await device.Hash();
+        var hash = device.Hash();
         return hash;
     }
 
