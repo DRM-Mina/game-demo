@@ -52,7 +52,7 @@ namespace Drm_Mina
             return input.ToArray();
         }
 
-        public string Hash()
+        public async Task<string> Hash()
         {
             var inputs = HashInputs();
             var hash = Poseidon.Hash(inputs);

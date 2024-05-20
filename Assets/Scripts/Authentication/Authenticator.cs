@@ -60,7 +60,7 @@ public class Authenticator : MonoBehaviour
         try
         {
             textBar.UpdateText("Calculating hash...");
-            hash = GetHash(data);
+            hash = await GetHash(data);
             await Task.Delay(100 + animationDelay);
             textBar.UpdateText("Hash calculated.");
             await Task.Delay(200 + animationDelay);
@@ -78,6 +78,12 @@ public class Authenticator : MonoBehaviour
             await Task.Delay(500 + animationDelay);
             textBar.UpdateText("Getting current session...");
             session = await GetCurrentSession(hash);
+            if (session <= 0)
+            {
+                Debug.Log("Game is not bought.");
+                throw new Exception();
+            }
+
             textBar.UpdateText("Current session here.");
             await Task.Delay(200 + animationDelay);
             textBar.UpdateText("Session ID: " + session);
@@ -161,6 +167,11 @@ public class Authenticator : MonoBehaviour
                     textBar.EndTimer();
                     return;
                 }
+                if(id <= 0)
+                {
+                    textBar.Terminate();
+                    return;
+                }
             }
             catch (Exception e)
             {
@@ -207,10 +218,10 @@ public class Authenticator : MonoBehaviour
         return (int)innerObj["value"];;
     }
 
-    public string GetHash(IdentifierData data)
+    public async Task<string> GetHash(IdentifierData data)
     {
         var device = new Device(data);
-        var hash = device.Hash();
+        var hash = await device.Hash();
         return hash;
     }
 

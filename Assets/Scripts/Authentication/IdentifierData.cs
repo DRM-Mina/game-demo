@@ -63,11 +63,11 @@ public class IdentifierData
 
     private string[] stringsToReplace = { " ", "\n", "\r" };
 
-    public string cpuId = "52060A00FFFBEBBF";
-    public string systemSerial = "5CD0273QXP";
-    public string systemUUID = "30444335-3732-5133-5850-bce92f8b2e35";
-    public string baseboardSerial = "PKEAE028JDW0D7";
-    public string[] macAddress = new[] { "bc:e9:2f:8b:2e:35", "cc:d9:ac:b6:28:0d" };
+    public string cpuId = "";
+    public string systemSerial = "";
+    public string systemUUID = "";
+    public string baseboardSerial = "";
+    public string[] macAddress = new[] { "", "" };
     public string diskSerial = "";
     
     private string ParseProcessorId(string input)
