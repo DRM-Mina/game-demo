@@ -13,8 +13,7 @@ namespace Drm_Mina.Identifiers
                 throw new ArgumentException("Invalid Mac Address");
             }
 
-            Value = macAddress.Replace(":", "").ToUpper();
-            Value = macAddress.Replace("-", "").ToUpper();
+            Value = macAddress.Replace(":", "").Replace("-", "").ToUpper();
         }
 
         public sealed override string Value { get; set; }
