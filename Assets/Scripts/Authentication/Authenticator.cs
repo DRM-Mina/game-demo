@@ -27,8 +27,9 @@ public class Authenticator : MonoBehaviour
     public async Task Run()
     {
         await Task.Delay(500 + animationDelay);
-        
+
         IdentifierData data = new IdentifierData();
+
         try
         {
             textBar.UpdateText("Gathering identifier data...");
@@ -61,6 +62,7 @@ public class Authenticator : MonoBehaviour
         {
             textBar.UpdateText("Calculating hash...");
             hash = await GetHash(data);
+            Debug.Log(hash);
             await Task.Delay(100 + animationDelay);
             textBar.UpdateText("Hash calculated.");
             await Task.Delay(200 + animationDelay);
@@ -102,7 +104,7 @@ public class Authenticator : MonoBehaviour
             rawIdentifiers = data,
             currentSession = session.ToString(),
             newSession = _determinedSessionId.ToString(),
-            gameId = "1"
+            gameId = Constants.GameIDString
         };
         
         var dataS = JsonConvert.SerializeObject(newRandomSession);
@@ -198,8 +200,6 @@ public class Authenticator : MonoBehaviour
             }
           }
         }";
-
-        string gameId = "1";
 
         string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", hash);
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
