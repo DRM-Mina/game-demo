@@ -218,6 +218,36 @@ public class Authenticator : MonoBehaviour
         return (int)innerObj["value"];;
     }
 
+    public async Task<int> GetTimeoutInterval(string hash)
+    {
+        string query = @"
+        query GetTimeoutInterval {
+            runtime {
+                GameToken {
+                    timeoutInterval(key: {value: ""{input}""}) {
+                        value
+                    }
+                }
+            }
+        }";
+
+        string queryS = query.Replace("{input}", Constants.GameIDString);
+        var contentS = JsonConvert.SerializeObject(new { query = queryS });
+        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
+
+        var response = await Client.PostAsync(Constants.SessionURL, content);
+
+        var responseString = await response.Content.ReadAsStringAsync();
+        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
+
+        var innerObj = obj["data"]["runtime"]["GameToken"]["timeoutInterval"];
+        if (!innerObj.HasValues || (int)innerObj["value"] < 120)
+        {
+            return -1;
+        }
+        return (int)innerObj["value"];;
+    }
+
     public async Task<string> GetHash(IdentifierData data)
     {
         var device = new Device(data);
