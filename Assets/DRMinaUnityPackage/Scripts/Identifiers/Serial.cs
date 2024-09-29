@@ -23,11 +23,6 @@ namespace Drm_Mina.Identifiers
             return true;
         }
     
-        private string ToBigNumber()
-        {
-            return BigInteger.Parse("0" + Value, System.Globalization.NumberStyles.HexNumber).ToString();
-        }
-    
         private Field[] ToFields()
         {
             var fields = new List<Field>();
