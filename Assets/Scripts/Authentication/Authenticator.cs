@@ -10,6 +10,8 @@ using Newtonsoft.Json.Linq;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 using StringContent = System.Net.Http.StringContent;
+using System.Collections.Generic;
+
 
 public class Authenticator : MonoBehaviour
 {
@@ -29,6 +31,8 @@ public class Authenticator : MonoBehaviour
         await Task.Delay(500 + animationDelay);
 
         IdentifierData data = new IdentifierData();
+        
+        await GetEvents();
 
         try
         {
@@ -79,6 +83,7 @@ public class Authenticator : MonoBehaviour
         {
             await Task.Delay(500 + animationDelay);
             textBar.UpdateText("Getting current session...");
+            
             session = await GetCurrentSession(hash);
             if (session <= 0)
             {
@@ -186,6 +191,91 @@ public class Authenticator : MonoBehaviour
         textBar.EndTimer();
     }
 
+    public async Task<int> GetBlockHeight()
+    {
+        var request = new HttpRequestMessage
+        {
+            Method = HttpMethod.Get,
+            RequestUri = new Uri("https://devnet.api.minaexplorer.com/blocks?limit=1"),
+            Headers =
+            {
+
+            }
+        };
+
+        var response = await Client.SendAsync(request);
+        
+        var responseString = await response.Content.ReadAsStringAsync();
+        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
+
+        var blockHeight = obj["blocks"][0]["blockHeight"];
+
+        return (int)blockHeight;
+    }
+
+    public async Task<int> GetEvents()
+    {
+        var query = @"
+{
+  events(
+    input: {address: ""{input1}"", from: {input2}}
+  ) {
+    eventData {
+      data
+    }
+  }
+}
+";
+
+        string queryS = query.Replace("{input1}", "B62qn6sovFQ3XUdr98xv4Ex63sZncBSQDSZ7EBKpUGGdiiVCR8oJnpa").Replace("{input2}", "3333");
+        Debug.Log(queryS);
+
+        var contentS = JsonConvert.SerializeObject(new { query = queryS });
+        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
+
+        var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+
+        var responseString = await response.Content.ReadAsStringAsync();
+        Debug.Log(responseString);
+        
+        var obj = JsonConvert.DeserializeObject<Root>(responseString);
+        var events = obj.Data.Events;
+
+        foreach (var e in events)
+        {
+            var devicehash = e.EventData[0].Data[0];
+            var prevSession = e.EventData[0].Data[1];
+            var newSession = e.EventData[0].Data[2];
+            
+            Debug.Log(devicehash);
+            Debug.Log(prevSession);
+            Debug.Log(newSession);
+        }
+
+        return 0;
+    }
+    public class EventDataItem
+    {
+        public List<string> Data { get; set; }
+    }
+
+    public class Event
+    {
+        public List<EventDataItem> EventData { get; set; }
+    }
+
+    public class EventsResponse
+    {
+        public List<Event> Events { get; set; }
+    }
+
+    public class Root
+    {
+        public EventsResponse Data { get; set; }
+    }
+
+
+
     public async Task<int> GetCurrentSession(string hash)
     {
         string query = @"
@@ -200,22 +290,25 @@ public class Authenticator : MonoBehaviour
             }
           }
         }";
-
+        
+        
         string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", hash);
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-
+        
         var response = await Client.PostAsync(Constants.SessionURL, content);
 
         var responseString = await response.Content.ReadAsStringAsync();
         JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
 
-        var innerObj = obj["data"]["runtime"]["DRM"]["sessions"];
+        var innerObj = obj["blocks"][0]["blockHeight"];
         if (!innerObj.HasValues || (int)innerObj["value"] < 1)
         {
             return -1;
         }
         return (int)innerObj["value"];;
+        
+        return 1;
     }
 
     public async Task<int> GetTimeoutInterval(string hash)

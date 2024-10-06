@@ -153,22 +153,23 @@ public static class DRMAuthenticator
             }
           }
         }";
-
+        
         string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", hash);
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-
+        
         var response = await Client.PostAsync(Constants.SessionURL, content);
-
+        
         var responseString = await response.Content.ReadAsStringAsync();
         JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
-
+        
         var innerObj = obj["data"]["runtime"]["DRM"]["sessions"];
         if (!innerObj.HasValues || (int)innerObj["value"] < 1)
         {
             return -1;
         }
         return (int)innerObj["value"];;
+
     }
 
     public static async Task<string> GetHash(IdentifierData data)
