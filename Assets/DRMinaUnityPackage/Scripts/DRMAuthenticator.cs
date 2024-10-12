@@ -23,7 +23,7 @@ public static class DRMAuthenticator
         OnComplete?.Invoke(null, Run().Result);
     }
 
-    public static async Task<DRMStatusCode> Run()
+    static async Task<DRMStatusCode> Run()
     {
         IdentifierData data = new IdentifierData();
 
@@ -49,13 +49,27 @@ public static class DRMAuthenticator
             return DRMStatusCode.DeviceNotCompatible;
         }
 
+        int blockHeight = 0;
+        try
+        {
+            // blockHeight =
+        }
+        catch (Exception e)
+        {
+            Debug.Log(e);
+            return DRMStatusCode.NodeError;
+        }
+
         int session = -1;
         try
         {
             session = await GetCurrentSession(hash);
-            if (session <= 0)
+            switch (session)
             {
-                throw new Exception();
+                case -1:
+                    return DRMStatusCode.ProverNotReady;
+                case < -1:
+                    throw new Exception();
             }
         }
         catch (Exception e)
@@ -75,7 +89,7 @@ public static class DRMAuthenticator
         var dataS = JsonConvert.SerializeObject(newRandomSession);
         StringContent content = new StringContent(dataS, Encoding.UTF8, "application/json");
         
-        //can make this constant
+        
         int maxRetries = 5;
         int retryDelayMs = 1000;
 
@@ -141,35 +155,46 @@ public static class DRMAuthenticator
 
     public static async Task<int> GetCurrentSession(string hash)
     {
-        string query = @"
-        query GetCurrentSession {
-          runtime {
-            DRM {
-              sessions(
-                key: {gameId: {value: ""{input1}""}, identifierHash: ""{input2}""}
-              ) {
-                value
-              }
-            }
-          }
-        }";
+        StringContent content = new StringContent(hash, Encoding.UTF8, "application/json");
         
-        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", hash);
-        var contentS = JsonConvert.SerializeObject(new { query = queryS });
-        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-        
-        var response = await Client.PostAsync(Constants.SessionURL, content);
-        
-        var responseString = await response.Content.ReadAsStringAsync();
-        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
-        
-        var innerObj = obj["data"]["runtime"]["DRM"]["sessions"];
-        if (!innerObj.HasValues || (int)innerObj["value"] < 1)
-        {
-            return -1;
-        }
-        return (int)innerObj["value"];;
+        int maxRetries = 5;
+        int retryDelayMs = 1000;
 
+        for (var retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
+                if (response.StatusCode == HttpStatusCode.Processing)
+                {
+                    throw new ApplicationException();
+                }
+                if(response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new Exception("Server returned status code.");
+                }
+                var responseString = await response.Content.ReadAsStringAsync();
+                var responseJson = JObject.Parse(responseString);
+                return responseJson["session"].Value<int>();
+            }
+            catch (Exception e)
+            {
+                if (e is ApplicationException)
+                {
+                    if (retry == maxRetries - 1)
+                    {
+                        return -1;
+                    }
+                    await Task.Delay(retryDelayMs);
+                }
+                else
+                {
+                    return -2;
+                }
+            }
+        }
+
+        return -3;
     }
 
     public static async Task<string> GetHash(IdentifierData data)
@@ -186,6 +211,7 @@ public enum DRMStatusCode
     Success,
     ProverNotReady,
     ProverError,
+    NodeError,
     DeviceNotCompatible,
     Timeout,
     GameNotBoughtOrNoConnection

@@ -31,8 +31,6 @@ public class Authenticator : MonoBehaviour
         await Task.Delay(500 + animationDelay);
 
         IdentifierData data = new IdentifierData();
-        
-        await GetEvents();
 
         try
         {
@@ -163,22 +161,18 @@ public class Authenticator : MonoBehaviour
         while(Time.time - startTime < 300f)
         {
             textBar.UpdateText("Getting Current Session...");
-            int id;
             try
             {
-                id = await GetCurrentSession(hash);
-                Debug.Log("NEW ID:" + id);
-                if (_determinedSessionId == id)
+                var isUpdated = await ControlEventsForSession(
+                    hash, session, _determinedSessionId);
+                if (isUpdated)
                 {
                     textBar.Success();
                     textBar.EndTimer();
                     return;
                 }
-                if(id <= 0)
-                {
-                    textBar.Terminate();
-                    return;
-                }
+                textBar.Terminate();
+                return;
             }
             catch (Exception e)
             {
@@ -213,7 +207,7 @@ public class Authenticator : MonoBehaviour
         return (int)blockHeight;
     }
 
-    public async Task<int> GetEvents()
+    public async Task<bool> ControlEventsForSession(string hash, int prev, int current)
     {
         var query = @"
 {
@@ -226,33 +220,45 @@ public class Authenticator : MonoBehaviour
   }
 }
 ";
+        var currentBlock = (await GetBlockHeight() - 10).ToString();
 
-        string queryS = query.Replace("{input1}", "B62qn6sovFQ3XUdr98xv4Ex63sZncBSQDSZ7EBKpUGGdiiVCR8oJnpa").Replace("{input2}", "3333");
+        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", currentBlock);
         Debug.Log(queryS);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+        int maxRetries = 5;
+        int retryDelayMs = 1000;
 
-        var responseString = await response.Content.ReadAsStringAsync();
-        Debug.Log(responseString);
-        
-        var obj = JsonConvert.DeserializeObject<Root>(responseString);
-        var events = obj.Data.Events;
-
-        foreach (var e in events)
+        for (int i = 0; i < maxRetries; i++)
         {
-            var devicehash = e.EventData[0].Data[0];
-            var prevSession = e.EventData[0].Data[1];
-            var newSession = e.EventData[0].Data[2];
+            Debug.Log((i+1) + "th try");
+            var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+
+            var responseString = await response.Content.ReadAsStringAsync();
+            Debug.Log(responseString);
+        
+            var obj = JsonConvert.DeserializeObject<Root>(responseString);
+            var events = obj.Data.Events;
+
+            foreach (var e in events)
+            {
+                var devicehash = e.EventData[0].Data[0];
+                var prevSession = e.EventData[0].Data[1];
+                var newSession = e.EventData[0].Data[2];
             
-            Debug.Log(devicehash);
-            Debug.Log(prevSession);
-            Debug.Log(newSession);
+                Debug.Log(devicehash + " " +  prevSession + " " + newSession);
+            
+                if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                {
+                    return true;
+                }
+            }
+            await Task.Delay(retryDelayMs);
         }
 
-        return 0;
+        return false;
     }
     public class EventDataItem
     {
@@ -278,67 +284,56 @@ public class Authenticator : MonoBehaviour
 
     public async Task<int> GetCurrentSession(string hash)
     {
-        string query = @"
-        query GetCurrentSession {
-          runtime {
-            DRM {
-              sessions(
-                key: {gameId: {value: ""{input1}""}, identifierHash: ""{input2}""}
-              ) {
-                value
-              }
-            }
-          }
-        }";
-        
-        
-        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", hash);
-        var contentS = JsonConvert.SerializeObject(new { query = queryS });
-        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-        
-        var response = await Client.PostAsync(Constants.SessionURL, content);
-
-        var responseString = await response.Content.ReadAsStringAsync();
-        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
-
-        var innerObj = obj["blocks"][0]["blockHeight"];
-        if (!innerObj.HasValues || (int)innerObj["value"] < 1)
+        var requestBody = new
         {
-            return -1;
-        }
-        return (int)innerObj["value"];;
+            deviceHash = hash 
+        };
+        var dataString = JsonConvert.SerializeObject(requestBody);
+        StringContent content = new StringContent(dataString, Encoding.UTF8, "application/json");
         
-        return 1;
-    }
-
-    public async Task<int> GetTimeoutInterval(string hash)
-    {
-        string query = @"
-        query GetTimeoutInterval {
-            runtime {
-                GameToken {
-                    timeoutInterval(key: {value: ""{input}""}) {
-                        value
+        int maxRetries = 3;
+        int retryDelayMs = 3333;
+        
+        Debug.Log("Getting current session...");
+        
+        for (int retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL + "current-session", content);
+                if (response.StatusCode == HttpStatusCode.Processing)
+                {
+                    throw new ApplicationException();
+                }
+                if(response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new Exception("Server returned status code.");
+                }
+                var responseData = await response.Content.ReadAsStringAsync();
+                Debug.Log(responseData);
+                var responseJson = JObject.Parse(responseData);
+                Debug.Log(responseJson);
+                Debug.Log(responseJson["currentSession"].Value<int>());
+                return responseJson["currentSession"].Value<int>();
+            }
+            catch (Exception e)
+            {
+                if (e is ApplicationException)
+                {
+                    if (retry == maxRetries - 1)
+                    {
+                        return 0;
                     }
+                    await Task.Delay(retryDelayMs);
+                }
+                else
+                {
+                    return 0;
                 }
             }
-        }";
-
-        string queryS = query.Replace("{input}", Constants.GameIDString);
-        var contentS = JsonConvert.SerializeObject(new { query = queryS });
-        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
-
-        var response = await Client.PostAsync(Constants.SessionURL, content);
-
-        var responseString = await response.Content.ReadAsStringAsync();
-        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
-
-        var innerObj = obj["data"]["runtime"]["GameToken"]["timeoutInterval"];
-        if (!innerObj.HasValues || (int)innerObj["value"] < 120)
-        {
-            return -1;
         }
-        return (int)innerObj["value"];;
+
+        return 0;
     }
 
     public async Task<string> GetHash(IdentifierData data)
@@ -347,5 +342,6 @@ public class Authenticator : MonoBehaviour
         var hash = await device.Hash();
         return hash;
     }
+
 
 }
