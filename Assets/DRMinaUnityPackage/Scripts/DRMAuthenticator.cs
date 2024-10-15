@@ -10,6 +10,8 @@ using Newtonsoft.Json.Linq;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 using StringContent = System.Net.Http.StringContent;
+using System.Collections.Generic;
+
 
 public static class DRMAuthenticator
 {
@@ -47,17 +49,6 @@ public static class DRMAuthenticator
         {
             Debug.Log(e);
             return DRMStatusCode.DeviceNotCompatible;
-        }
-
-        int blockHeight = 0;
-        try
-        {
-            // blockHeight =
-        }
-        catch (Exception e)
-        {
-            Debug.Log(e);
-            return DRMStatusCode.NodeError;
         }
 
         int session = -1;
@@ -128,20 +119,14 @@ public static class DRMAuthenticator
         var startTime = Time.time;
         while(Time.time - startTime < 300f)
         {
-            int id;
             try
             {
-                id = await GetCurrentSession(hash);
-                Debug.Log("NEW ID:" + id);
-                if (_determinedSessionId == id)
+                var isUpdated = await ControlEventsForSession(
+                    hash, session, _determinedSessionId);
+                if (isUpdated)
                 {
                     //success
                     return DRMStatusCode.Success;
-                }
-                if(id <= 0)
-                {
-                    //game is not bought or no connection
-                    return DRMStatusCode.GameNotBoughtOrNoConnection;
                 }
             }
             catch (Exception e)
@@ -155,27 +140,37 @@ public static class DRMAuthenticator
 
     public static async Task<int> GetCurrentSession(string hash)
     {
-        StringContent content = new StringContent(hash, Encoding.UTF8, "application/json");
+        var requestBody = new
+        {
+            deviceHash = hash 
+        };
+        var dataString = JsonConvert.SerializeObject(requestBody);
+        StringContent content = new StringContent(dataString, Encoding.UTF8, "application/json");
         
         int maxRetries = 5;
-        int retryDelayMs = 1000;
-
-        for (var retry = 0; retry < maxRetries; retry++)
+        int retryDelayMs = 3333;
+        
+        Debug.Log("Getting current session...");
+        
+        for (int retry = 0; retry < maxRetries; retry++)
         {
+            Debug.Log("Trying to get session" + (retry + 1).ToString() + "th time");
             try
             {
-                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
+                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL + "current-session", content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();
                 }
                 if(response.StatusCode != HttpStatusCode.OK)
                 {
-                    throw new Exception("Server returned status code.");
+                    throw new Exception("Server returned status not OK.");
                 }
-                var responseString = await response.Content.ReadAsStringAsync();
-                var responseJson = JObject.Parse(responseString);
-                return responseJson["session"].Value<int>();
+                var responseData = await response.Content.ReadAsStringAsync();
+                Debug.Log(responseData);
+                var responseJson = JObject.Parse(responseData);
+                Debug.Log(responseJson["currentSession"].Value<int>());
+                return responseJson["currentSession"].Value<int>();
             }
             catch (Exception e)
             {
@@ -183,20 +178,117 @@ public static class DRMAuthenticator
                 {
                     if (retry == maxRetries - 1)
                     {
-                        return -1;
+                        return 0;
                     }
                     await Task.Delay(retryDelayMs);
                 }
                 else
                 {
-                    return -2;
+                    return 0;
                 }
             }
         }
 
-        return -3;
+        return 0;
     }
 
+    static async Task<int> GetBlockHeight()
+    {
+        var request = new HttpRequestMessage
+        {
+            Method = HttpMethod.Get,
+            RequestUri = new Uri("https://devnet.api.minaexplorer.com/blocks?limit=1"),
+            Headers =
+            {
+
+            }
+        };
+
+        var response = await Client.SendAsync(request);
+        
+        var responseString = await response.Content.ReadAsStringAsync();
+        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
+
+        var blockHeight = obj["blocks"][0]["blockHeight"];
+
+        return (int)blockHeight;
+    }
+    
+    static async Task<bool> ControlEventsForSession(string hash, int prev, int current)
+    {
+        var query = @"
+{
+  events(
+    input: {address: ""{input1}"", from: {input2}}
+  ) {
+    eventData {
+      data
+    }
+  }
+}
+";
+        var fromBlockNumber = (await GetBlockHeight() - 5).ToString();
+
+        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlockNumber);
+        Debug.Log(queryS);
+
+        var contentS = JsonConvert.SerializeObject(new { query = queryS });
+        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
+
+        int maxRetries = 20;
+        int retryDelayMs = 30000;
+
+        for (int i = 0; i < maxRetries; i++)
+        {
+            Debug.Log((i+1) + "th try");
+            var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+
+            var responseString = await response.Content.ReadAsStringAsync();
+            Debug.Log(responseString);
+        
+            var obj = JsonConvert.DeserializeObject<Root>(responseString);
+            var events = obj.Data.Events;
+
+            foreach (var e in events)
+            {
+                var devicehash = e.EventData[0].Data[0];
+                var prevSession = e.EventData[0].Data[1];
+                var newSession = e.EventData[0].Data[2];
+            
+                Debug.Log(devicehash + " " +  prevSession + " " + newSession);
+            
+                if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                {
+                    return true;
+                }
+            }
+            await Task.Delay(retryDelayMs);
+        }
+
+        return false;
+    }
+    public class EventDataItem
+    {
+        public List<string> Data { get; set; }
+    }
+
+    public class Event
+    {
+        public List<EventDataItem> EventData { get; set; }
+    }
+
+    public class EventsResponse
+    {
+        public List<Event> Events { get; set; }
+    }
+
+    public class Root
+    {
+        public EventsResponse Data { get; set; }
+    }
+
+
+    
     public static async Task<string> GetHash(IdentifierData data)
     {
         var device = new Device(data);
@@ -205,6 +297,8 @@ public static class DRMAuthenticator
     }
 
 }
+
+
 
 public enum DRMStatusCode
 {
