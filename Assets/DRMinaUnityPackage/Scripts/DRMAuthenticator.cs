@@ -117,7 +117,7 @@ public static class DRMAuthenticator
         }
 
         var startTime = Time.time;
-        while(Time.time - startTime < 300f)
+        while(Time.time - startTime < 600f) // 10 minutes 
         {
             try
             {
@@ -131,8 +131,9 @@ public static class DRMAuthenticator
             }
             catch (Exception e)
             {
+                Debug.Log(e);
             }
-            await Task.Delay(10000);
+            await Task.Delay(60000); // 1 minute 
         }
         //timeout
         return DRMStatusCode.Timeout;
@@ -227,7 +228,7 @@ public static class DRMAuthenticator
   }
 }
 ";
-        var fromBlockNumber = (await GetBlockHeight() - 5).ToString();
+        var fromBlockNumber = (await GetBlockHeight() - 1).ToString();
 
         string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlockNumber);
         Debug.Log(queryS);

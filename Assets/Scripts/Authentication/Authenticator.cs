@@ -18,7 +18,7 @@ public class Authenticator : MonoBehaviour
     public TextBar textBar;
     private static readonly HttpClient Client = new();
     private int _determinedSessionId = -1;
-    private int animationDelay = 400;
+    private int animationDelay = 0;
     [HideInInspector] public bool isDead = false;
 
     private void Start()
@@ -154,11 +154,11 @@ public class Authenticator : MonoBehaviour
             }
         }
 
-        
-        await Task.Delay(200 + animationDelay);
-        textBar.StartTimer(300);
+        textBar.StartTimer(2400);
+        await Task.Delay(240000); // 4 minutes
+        textBar.StartTimer(6000);
         var startTime = Time.time;
-        while(Time.time - startTime < 300f)
+        while(Time.time - startTime < 600000) // 10 minutes
         {
             textBar.UpdateText("Getting Current Session...");
             try
@@ -171,15 +171,14 @@ public class Authenticator : MonoBehaviour
                     textBar.EndTimer();
                     return;
                 }
-                textBar.Terminate();
-                return;
             }
             catch (Exception e)
             {
+                Debug.Log(e);
             }
             await Task.Delay(animationDelay);
             textBar.UpdateText("ID is not same. Retrying...");
-            await Task.Delay(10000);
+            await Task.Delay(60000); // 1 minute
         }
         textBar.UpdateText("FAIL");
         textBar.EndTimer();
@@ -220,15 +219,15 @@ public class Authenticator : MonoBehaviour
   }
 }
 ";
-        var currentBlock = (await GetBlockHeight() - 10).ToString();
+        var fromBlock = (await GetBlockHeight() - 1).ToString();
 
-        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", currentBlock);
+        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlock);
         Debug.Log(queryS);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        int maxRetries = 5;
+        int maxRetries = 4;
         int retryDelayMs = 1000;
 
         for (int i = 0; i < maxRetries; i++)
@@ -239,46 +238,64 @@ public class Authenticator : MonoBehaviour
             var responseString = await response.Content.ReadAsStringAsync();
             Debug.Log(responseString);
         
-            var obj = JsonConvert.DeserializeObject<Root>(responseString);
-            var events = obj.Data.Events;
-
-            foreach (var e in events)
+            var root = JsonConvert.DeserializeObject<RootObject>(responseString);
+            
+            foreach (var eventItem in root.data.events)
             {
-                var devicehash = e.EventData[0].Data[0];
-                var prevSession = e.EventData[0].Data[1];
-                var newSession = e.EventData[0].Data[2];
-            
-                Debug.Log(devicehash + " " +  prevSession + " " + newSession);
-            
-                if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                foreach (var eventDataItem in eventItem.eventData)
                 {
-                    return true;
+                    var devicehash = eventDataItem.data[0];
+                    var prevSession = eventDataItem.data[1];
+                    var newSession = eventDataItem.data[2];
+                
+                    Debug.Log(devicehash + " " +  prevSession + " " + newSession);
+                
+                    if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                    {
+                        return true;
+                    }
                 }
             }
+
+
+            // foreach (var e in events)
+            // {
+            //     var devicehash = e.Data
+            //     var prevSession = e.Data[1];
+            //     var newSession = e.Data[2];
+            //
+            //     Debug.Log(devicehash + " " +  prevSession + " " + newSession);
+            //
+            //     if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+            //     {
+            //         return true;
+            //     }
+            // }
             await Task.Delay(retryDelayMs);
         }
 
         return false;
     }
-    public class EventDataItem
+    public class RootObject
     {
-        public List<string> Data { get; set; }
+        public Data data { get; set; }
+    }
+
+    public class Data
+    {
+        public List<Event> events { get; set; }
     }
 
     public class Event
     {
-        public List<EventDataItem> EventData { get; set; }
+        public List<EventData> eventData { get; set; }
     }
 
-    public class EventsResponse
+    public class EventData
     {
-        public List<Event> Events { get; set; }
+        public List<string> data { get; set; }
     }
 
-    public class Root
-    {
-        public EventsResponse Data { get; set; }
-    }
 
 
 
