@@ -150,7 +150,7 @@ public class Authenticator : MonoBehaviour
         textBar.EndTimer();
     }
 
-    private async Task<int> GetBlockHeight()
+    private static async Task<int> GetBlockHeight()
     {
         var request = new HttpRequestMessage
         {
@@ -165,7 +165,7 @@ public class Authenticator : MonoBehaviour
         var response = await Client.SendAsync(request);
         
         var responseString = await response.Content.ReadAsStringAsync();
-        JObject obj = JsonConvert.DeserializeObject<JObject>(responseString);
+        var obj = JsonConvert.DeserializeObject<JObject>(responseString);
 
         var blockHeight = obj["blocks"][0]["blockHeight"];
 
@@ -174,7 +174,7 @@ public class Authenticator : MonoBehaviour
 
     private async Task<bool> ControlEventsForSession(string hash, int prev, int current)
     {
-        var query = @"
+        const string query = @"
 {
   events(
     input: {address: ""{input1}"", from: {input2}}
@@ -187,15 +187,15 @@ public class Authenticator : MonoBehaviour
 ";
         var fromBlock = (await GetBlockHeight() - 1).ToString();
 
-        string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlock);
+        var queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlock);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
-        StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
+        var content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        int maxRetries = 3;
-        int retryDelayMs = 2000;
+        const int maxRetries = 3;
+        const int retryDelayMs = 2000;
 
-        for (int i = 0; i < maxRetries; i++)
+        for (var i = 0; i < maxRetries; i++)
         {
             var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
 
@@ -208,12 +208,12 @@ public class Authenticator : MonoBehaviour
             {
                 foreach (var eventDataItem in eventItem.EventData)
                 {
-                    var devicehash = eventDataItem.Data[0];
+                    var deviceHash = eventDataItem.Data[0];
                     var prevSession = eventDataItem.Data[1];
                     var newSession = eventDataItem.Data[2];
-                    Debug.Log(devicehash + " " +  prevSession + " " + newSession);
+                    Debug.Log(deviceHash + " " +  prevSession + " " + newSession);
                 
-                    if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                    if (deviceHash == hash && prevSession == prev.ToString() && newSession == current.ToString())
                     {
                         return true;
                     }
@@ -252,16 +252,15 @@ public class Authenticator : MonoBehaviour
             deviceHash = hash 
         };
         var dataString = JsonConvert.SerializeObject(requestBody);
-        StringContent content = new StringContent(dataString, Encoding.UTF8, "application/json");
+        var content = new StringContent(dataString, Encoding.UTF8, "application/json");
         
-        int maxRetries = 3;
-        int retryDelayMs = 60000;
-        
-        for (int retry = 0; retry < maxRetries; retry++)
+        const int maxRetries = 3;
+
+        for (var retry = 0; retry < maxRetries; retry++)
         {
             try
             {
-                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL + "current-session", content);
+                var response = await Client.PostAsync(Constants.ProverURL + "current-session", content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();
@@ -285,7 +284,7 @@ public class Authenticator : MonoBehaviour
                     {
                         return 0;
                     }
-                    await Task.Delay(retryDelayMs);
+                    await Task.Delay(Minute);
                 }
                 else
                 {
@@ -311,7 +310,6 @@ public class Authenticator : MonoBehaviour
         var content = new StringContent(dataS, Encoding.UTF8, "application/json");
         
         const int maxRetries = 5;
-        const int retryDelayMs = 20 * Second;
 
         for (var retry = 0; retry < maxRetries; retry++)
         {
@@ -339,7 +337,7 @@ public class Authenticator : MonoBehaviour
                         textBar.Terminate();
                         return false;
                     }
-                    await Task.Delay(retryDelayMs);
+                    await Task.Delay(20 * Second);
                 }
                 else
                 {

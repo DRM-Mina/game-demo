@@ -22,9 +22,8 @@ public class TextBar : MonoBehaviour
 
     public void UpdateText(string str)
     {
-        Debug.Log(str);
         var rt = text.rectTransform;
-        Sequence s = DOTween.Sequence();
+        var s = DOTween.Sequence();
         s.Append(rt.DOAnchorPos(new Vector2(rt.anchoredPosition.x, -rt.rect.height / 2), moveTime)
             .SetEase(Ease.OutSine));
         s.Join(DOTween.To(() => canvasGroup.alpha, x => canvasGroup.alpha = x, 0.0f, moveTime / 2)
@@ -48,7 +47,7 @@ public class TextBar : MonoBehaviour
         bg.DOSizeDelta(target, 0.5f).OnComplete(() => timerCoroutine = StartCoroutine(Countdown(seconds)));
     }
 
-    public IEnumerator Countdown(int seconds)
+    private IEnumerator Countdown(int seconds)
     {
         while (seconds > 0)
         {
