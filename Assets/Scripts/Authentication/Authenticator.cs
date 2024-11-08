@@ -17,8 +17,14 @@ public class Authenticator : MonoBehaviour
 {
     public TextBar textBar;
     private static readonly HttpClient Client = new();
-    private int _determinedSessionId = -1;
-    private int animationDelay = 0;
+    private int currentSessionId = -1;
+    private int determinedSessionId = -1;
+
+    private const int Second = 1000;
+    private const int Minute = 60000;
+    private const int AnimationDelay = 1 * Second;
+
+    private IdentifierData identifierData;
     [HideInInspector] public bool isDead = false;
 
     private void Start()
@@ -28,14 +34,14 @@ public class Authenticator : MonoBehaviour
 
     public async Task Run()
     {
-        await Task.Delay(500 + animationDelay);
+        await Task.Delay(500 + AnimationDelay);
 
-        IdentifierData data = new IdentifierData();
+        identifierData = new IdentifierData();
 
         try
         {
             textBar.UpdateText("Gathering identifier data...");
-            await data.GetData();
+            await identifierData.GetData();
             textBar.UpdateText("Identifier data collected.");
         }
         catch (Exception e)
@@ -45,29 +51,29 @@ public class Authenticator : MonoBehaviour
             return;
         }
 
-        await Task.Delay(500 + animationDelay);
-        textBar.UpdateText("CPUID: " + data.cpuId);
-        await Task.Delay(100 + animationDelay);
-        textBar.UpdateText("Serial: " + data.systemSerial);
-        await Task.Delay(100 + animationDelay);
-        textBar.UpdateText("UUID: " + data.systemUUID);
-        await Task.Delay(100 + animationDelay);
-        textBar.UpdateText("Baseboard: " + data.baseboardSerial);
-        await Task.Delay(100 + animationDelay);
-        textBar.UpdateText("MAC1: " + data.macAddress[0]);
-        await Task.Delay(100 + animationDelay);
-        textBar.UpdateText("MAC2: " + data.macAddress[1]);
-        await Task.Delay(100 + animationDelay);
+        // await Task.Delay(500 + animationDelay);
+        // textBar.UpdateText("CPUID: " + data.cpuId);
+        // await Task.Delay(100 + animationDelay);
+        // textBar.UpdateText("Serial: " + data.systemSerial);
+        // await Task.Delay(100 + animationDelay);
+        // textBar.UpdateText("UUID: " + data.systemUUID);
+        // await Task.Delay(100 + animationDelay);
+        // textBar.UpdateText("Baseboard: " + data.baseboardSerial);
+        // await Task.Delay(100 + animationDelay);
+        // textBar.UpdateText("MAC1: " + data.macAddress[0]);
+        // await Task.Delay(100 + animationDelay);
+        // textBar.UpdateText("MAC2: " + data.macAddress[1]);
+        // await Task.Delay(100 + animationDelay);
 
-        string hash = "";
+        var hash = "";
         try
         {
             textBar.UpdateText("Calculating hash...");
-            hash = await GetHash(data);
+            hash = await GetHash(identifierData);
             Debug.Log(hash);
-            await Task.Delay(100 + animationDelay);
+            await Task.Delay(AnimationDelay);
             textBar.UpdateText("Hash calculated.");
-            await Task.Delay(200 + animationDelay);
+            await Task.Delay(AnimationDelay);
             textBar.UpdateText("Hash: " + hash);
         }
         catch (Exception e)
@@ -76,22 +82,20 @@ public class Authenticator : MonoBehaviour
             return;
         }
 
-        int session = -1;
+
         try
         {
-            await Task.Delay(500 + animationDelay);
+            await Task.Delay(AnimationDelay);
             textBar.UpdateText("Getting current session...");
             
-            session = await GetCurrentSession(hash);
-            if (session <= 0)
+            currentSessionId = await GetCurrentSession(hash);
+            if (currentSessionId <= 0)
             {
                 Debug.Log("Game is not bought.");
                 throw new Exception();
             }
-
-            textBar.UpdateText("Current session here.");
-            await Task.Delay(200 + animationDelay);
-            textBar.UpdateText("Session ID: " + session);
+            
+            textBar.UpdateText("Current session ID: " + currentSessionId);
         }
         catch (Exception e)
         {
@@ -99,72 +103,34 @@ public class Authenticator : MonoBehaviour
             return;
         }
         
-        await Task.Delay(200 + animationDelay);
-        _determinedSessionId = Random.Range(2, int.MaxValue);
-        textBar.UpdateText("Sending New Session with ID: " + _determinedSessionId);
-        var newRandomSession = new SessionData
-        {
-            rawIdentifiers = data,
-            currentSession = session.ToString(),
-            newSession = _determinedSessionId.ToString(),
-            gameId = Constants.GameIDString
-        };
-        
-        var dataS = JsonConvert.SerializeObject(newRandomSession);
-        StringContent content = new StringContent(dataS, Encoding.UTF8, "application/json");
-        
-        
-        int maxRetries = 5;
-        int retryDelayMs = 1000;
+        await Task.Delay(AnimationDelay);
+        determinedSessionId = Random.Range(2, int.MaxValue);
+        textBar.UpdateText("Sending New Session with ID: " + determinedSessionId);
 
-        for (int retry = 0; retry < maxRetries; retry++)
+        if (await SendNewSession())
         {
-            try
-            {
-                HttpResponseMessage response = await Client.PostAsync(Constants.ProverURL, content);
-                if (response.StatusCode == HttpStatusCode.Processing)
-                {
-                    throw new ApplicationException();
-                }
-                if(response.StatusCode != HttpStatusCode.OK)
-                {
-                    throw new Exception("Server returned  status code.");
-                }
-                textBar.UpdateText("New session sent.");
-                break;
-            }
-            catch (Exception e)
-            {
-                if (e is ApplicationException)
-                {
-                    textBar.UpdateText("Prover is not ready, steady lads...");
-                    if (retry == maxRetries - 1)
-                    {
-                        textBar.Terminate();
-                        return;
-                    }
-                    await Task.Delay(retryDelayMs + animationDelay);
-                    textBar.UpdateText("Sending New Session with ID: " + _determinedSessionId);
-                }
-                else
-                {
-                    textBar.Terminate("Your device may not be compatible with our prover, or your internet connection is down. Please try again later.");
-                    return;
-                }
-            }
+            textBar.UpdateText("New session proof sent to sequencer ^^");
+            await Task.Delay(AnimationDelay);
+            textBar.UpdateText("Lets wait until sequencer sends to Mina!");
+            await Task.Delay(AnimationDelay);
+        }
+        else
+        {
+            return;
         }
 
-        textBar.StartTimer(2400);
-        await Task.Delay(240000); // 4 minutes
-        textBar.StartTimer(6000);
+        textBar.StartTimer(240);
+        await Task.Delay(4 * Minute);
+        textBar.UpdateText("Start to fetching events from Mina");
+        textBar.StartTimer(600);
         var startTime = Time.time;
-        while(Time.time - startTime < 600000) // 10 minutes
+        while(Time.time - startTime < 10 * Minute)
         {
             textBar.UpdateText("Getting Current Session...");
             try
             {
                 var isUpdated = await ControlEventsForSession(
-                    hash, session, _determinedSessionId);
+                    hash, currentSessionId, determinedSessionId);
                 if (isUpdated)
                 {
                     textBar.Success();
@@ -176,15 +142,15 @@ public class Authenticator : MonoBehaviour
             {
                 Debug.Log(e);
             }
-            await Task.Delay(animationDelay);
+            await Task.Delay(AnimationDelay);
             textBar.UpdateText("ID is not same. Retrying...");
-            await Task.Delay(60000); // 1 minute
+            await Task.Delay(Minute);
         }
-        textBar.UpdateText("FAIL");
+        textBar.UpdateText("Sowwy we cannot found :(");
         textBar.EndTimer();
     }
 
-    public async Task<int> GetBlockHeight()
+    private async Task<int> GetBlockHeight()
     {
         var request = new HttpRequestMessage
         {
@@ -206,7 +172,7 @@ public class Authenticator : MonoBehaviour
         return (int)blockHeight;
     }
 
-    public async Task<bool> ControlEventsForSession(string hash, int prev, int current)
+    private async Task<bool> ControlEventsForSession(string hash, int prev, int current)
     {
         var query = @"
 {
@@ -222,17 +188,15 @@ public class Authenticator : MonoBehaviour
         var fromBlock = (await GetBlockHeight() - 1).ToString();
 
         string queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlock);
-        Debug.Log(queryS);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         StringContent content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        int maxRetries = 4;
-        int retryDelayMs = 1000;
+        int maxRetries = 3;
+        int retryDelayMs = 2000;
 
         for (int i = 0; i < maxRetries; i++)
         {
-            Debug.Log((i+1) + "th try");
             var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
 
             var responseString = await response.Content.ReadAsStringAsync();
@@ -240,14 +204,13 @@ public class Authenticator : MonoBehaviour
         
             var root = JsonConvert.DeserializeObject<RootObject>(responseString);
             
-            foreach (var eventItem in root.data.events)
+            foreach (var eventItem in root.Data.Events)
             {
-                foreach (var eventDataItem in eventItem.eventData)
+                foreach (var eventDataItem in eventItem.EventData)
                 {
-                    var devicehash = eventDataItem.data[0];
-                    var prevSession = eventDataItem.data[1];
-                    var newSession = eventDataItem.data[2];
-                
+                    var devicehash = eventDataItem.Data[0];
+                    var prevSession = eventDataItem.Data[1];
+                    var newSession = eventDataItem.Data[2];
                     Debug.Log(devicehash + " " +  prevSession + " " + newSession);
                 
                     if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
@@ -256,21 +219,7 @@ public class Authenticator : MonoBehaviour
                     }
                 }
             }
-
-
-            // foreach (var e in events)
-            // {
-            //     var devicehash = e.Data
-            //     var prevSession = e.Data[1];
-            //     var newSession = e.Data[2];
-            //
-            //     Debug.Log(devicehash + " " +  prevSession + " " + newSession);
-            //
-            //     if (devicehash == hash && prevSession == prev.ToString() && newSession == current.ToString())
-            //     {
-            //         return true;
-            //     }
-            // }
+            
             await Task.Delay(retryDelayMs);
         }
 
@@ -278,28 +227,25 @@ public class Authenticator : MonoBehaviour
     }
     public class RootObject
     {
-        public Data data { get; set; }
+        public Data Data { get; set; }
     }
 
     public class Data
     {
-        public List<Event> events { get; set; }
+        public List<Event> Events { get; set; }
     }
 
     public class Event
     {
-        public List<EventData> eventData { get; set; }
+        public List<EventData> EventData { get; set; }
     }
 
     public class EventData
     {
-        public List<string> data { get; set; }
+        public List<string> Data { get; set; }
     }
 
-
-
-
-    public async Task<int> GetCurrentSession(string hash)
+    private static async Task<int> GetCurrentSession(string hash)
     {
         var requestBody = new
         {
@@ -309,9 +255,7 @@ public class Authenticator : MonoBehaviour
         StringContent content = new StringContent(dataString, Encoding.UTF8, "application/json");
         
         int maxRetries = 3;
-        int retryDelayMs = 3333;
-        
-        Debug.Log("Getting current session...");
+        int retryDelayMs = 60000;
         
         for (int retry = 0; retry < maxRetries; retry++)
         {
@@ -353,12 +297,65 @@ public class Authenticator : MonoBehaviour
         return 0;
     }
 
-    public async Task<string> GetHash(IdentifierData data)
+    private async Task<bool> SendNewSession()
+    {
+        var newRandomSession = new SessionData
+        {
+            rawIdentifiers = identifierData,
+            currentSession = currentSessionId.ToString(),
+            newSession = determinedSessionId.ToString(),
+            gameId = Constants.GameIDString
+        };
+        
+        var dataS = JsonConvert.SerializeObject(newRandomSession);
+        var content = new StringContent(dataS, Encoding.UTF8, "application/json");
+        
+        const int maxRetries = 5;
+        const int retryDelayMs = 20 * Second;
+
+        for (var retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                textBar.UpdateText("Sending New Session with ID: " + determinedSessionId);
+                var response = await Client.PostAsync(Constants.ProverURL, content);
+                if (response.StatusCode == HttpStatusCode.Processing)
+                {
+                    throw new ApplicationException();
+                }
+                if(response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new Exception("Server returned  status code.");
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                if (e is ApplicationException)
+                {
+                    textBar.UpdateText("Prover is not ready, steady lads...");
+                    if (retry == maxRetries - 1)
+                    {
+                        textBar.Terminate();
+                        return false;
+                    }
+                    await Task.Delay(retryDelayMs);
+                }
+                else
+                {
+                    textBar.Terminate("Your device may not be compatible with our prover, or your internet connection is down. Please try again later.");
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+    private static async Task<string> GetHash(IdentifierData data)
     {
         var device = new Device(data);
         var hash = await device.Hash();
         return hash;
     }
-
-
+    
 }
