@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Text.RegularExpressions;
-using System.Collections.Generic;
 
-namespace Drm_Mina.Identifiers
+namespace DRMinaUnityPackage.Scripts.Identifiers
 {
     public class MacAddress : IdentifierBase
     {

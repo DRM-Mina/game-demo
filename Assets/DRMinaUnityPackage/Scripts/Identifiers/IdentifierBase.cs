@@ -1,5 +1,5 @@
 
-namespace Drm_Mina.Identifiers
+namespace DRMinaUnityPackage.Scripts.Identifiers
 {
     public abstract class IdentifierBase
     {

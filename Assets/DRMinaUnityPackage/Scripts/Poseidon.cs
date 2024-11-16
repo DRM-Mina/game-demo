@@ -1,6 +1,6 @@
 using System;
 
-namespace Drm_Mina
+namespace DRMinaUnityPackage.Scripts
 {
     public static class Poseidon
     {

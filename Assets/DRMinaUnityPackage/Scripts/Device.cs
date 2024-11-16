@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Drm_Mina.Identifiers;
+using DRMinaUnityPackage.Scripts.Identifiers;
 
-namespace Drm_Mina
+namespace DRMinaUnityPackage.Scripts
 {
     public class Device
     {

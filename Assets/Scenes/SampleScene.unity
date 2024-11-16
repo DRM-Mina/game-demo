@@ -526,9 +526,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 5387625204135620813, guid: 0da548701679044848751fe126f09ecd, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7156719740818034434, guid: 0da548701679044848751fe126f09ecd, type: 3}
       propertyPath: m_Name
       value: Canvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 7156719740818034434, guid: 0da548701679044848751fe126f09ecd, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 8208894728457299949, guid: 0da548701679044848751fe126f09ecd, type: 3}
       propertyPath: m_Pivot.x
@@ -629,15 +637,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 907.6118
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 619.18414
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -7.1660357
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalRotation.w
@@ -683,6 +691,10 @@ PrefabInstance:
     - target: {fileID: 4261918268297001383, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: m_Name
       value: AuthenticatorManager
+      objectReference: {fileID: 0}
+    - target: {fileID: 4261918268297001383, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: textBar

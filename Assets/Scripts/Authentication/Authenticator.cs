@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Drm_Mina;
 using UnityEngine;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -11,6 +10,8 @@ using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
 using StringContent = System.Net.Http.StringContent;
 using System.Collections.Generic;
+using DRMinaUnityPackage;
+using DRMinaUnityPackage.Scripts;
 
 
 public class Authenticator : MonoBehaviour
@@ -187,7 +188,7 @@ public class Authenticator : MonoBehaviour
 ";
         var fromBlock = (await GetBlockHeight() - 1).ToString();
 
-        var queryS = query.Replace("{input1}", Constants.GameIDString).Replace("{input2}", fromBlock);
+        var queryS = query.Replace("{input1}", DRMEnvironment.GameIDString).Replace("{input2}", fromBlock);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         var content = new StringContent(contentS, Encoding.UTF8, "application/json");
@@ -260,7 +261,7 @@ public class Authenticator : MonoBehaviour
         {
             try
             {
-                var response = await Client.PostAsync(Constants.ProverURL + "current-session", content);
+                var response = await Client.PostAsync(DRMEnvironment.ProverURL + "current-session", content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();
@@ -303,7 +304,7 @@ public class Authenticator : MonoBehaviour
             rawIdentifiers = identifierData,
             currentSession = currentSessionId.ToString(),
             newSession = determinedSessionId.ToString(),
-            gameId = Constants.GameIDString
+            gameId = DRMEnvironment.GameIDString
         };
         
         var dataS = JsonConvert.SerializeObject(newRandomSession);
@@ -316,7 +317,7 @@ public class Authenticator : MonoBehaviour
             try
             {
                 textBar.UpdateText("Sending New Session with ID: " + determinedSessionId);
-                var response = await Client.PostAsync(Constants.ProverURL, content);
+                var response = await Client.PostAsync(DRMEnvironment.ProverURL, content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();

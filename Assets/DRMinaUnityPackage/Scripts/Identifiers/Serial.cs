@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 
-namespace Drm_Mina.Identifiers
+namespace DRMinaUnityPackage.Scripts.Identifiers
 {
     public class Serial : IdentifierBase
     {

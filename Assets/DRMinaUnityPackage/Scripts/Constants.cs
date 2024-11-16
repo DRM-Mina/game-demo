@@ -1,7 +1,7 @@
 
 using System.Numerics;
 
-namespace Drm_Mina
+namespace DRMinaUnityPackage.Scripts
 {
     public class Constants
     {
