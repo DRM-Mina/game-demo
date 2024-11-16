@@ -9,7 +9,9 @@ using Debug = UnityEngine.Debug;
 [Serializable]
 public class IdentifierData
 {
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     public async Task GetData()
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
     {
 #if UNITY_STANDALONE_WIN
 

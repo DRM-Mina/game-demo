@@ -52,11 +52,11 @@ namespace DRMinaUnityPackage.Scripts
             return input.ToArray();
         }
 
-        public async Task<string> Hash()
+        public Task<string> Hash()
         {
             var inputs = HashInputs();
             var hash = Poseidon.Hash(inputs);
-            return hash.ToString();
+            return Task.FromResult(hash.ToString());
         }
     }
 }
