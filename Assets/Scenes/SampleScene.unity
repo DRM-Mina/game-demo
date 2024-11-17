@@ -536,7 +536,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7156719740818034434, guid: 0da548701679044848751fe126f09ecd, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8208894728457299949, guid: 0da548701679044848751fe126f09ecd, type: 3}
       propertyPath: m_Pivot.x
@@ -694,7 +694,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4261918268297001383, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: textBar

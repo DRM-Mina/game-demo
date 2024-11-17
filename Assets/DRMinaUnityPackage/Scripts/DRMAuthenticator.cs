@@ -17,14 +17,14 @@ namespace DRMinaUnityPackage
         private static readonly HttpClient Client = new();
         private static int _currentSessionId = -1;
         private static int _determinedSessionId = -1;
-    
+
         private const int Second = 1000;
         private const int Minute = 60000;
-    
+
         private static IdentifierData _identifierData;
 
         public static event EventHandler<DRMStatusCode> OnComplete;
-    
+
         public static void Start()
         {
             RunWrapper();
@@ -61,48 +61,57 @@ namespace DRMinaUnityPackage
                 return DRMStatusCode.DeviceNotCompatible;
             }
 
-        
+
             var (currentSession, currentSessionStatusCode) = await GetCurrentSession(hash);
             if (currentSession < 1)
             {
                 Debug.Log("Current session not found");
                 return currentSessionStatusCode;
             }
-        
+
             _currentSessionId = currentSession;
-        
+
             _determinedSessionId = Random.Range(2, int.MaxValue);
-        
+
             var (success, newSessionStatusCode) = await SendNewSession();
 
             if (!success)
             {
                 return newSessionStatusCode;
             }
-        
+
             Debug.Log("Waiting sequencer to include tx");
             await Task.Delay(4 * Minute);
-        
+
             var startTime = Time.time;
+            var retryCount = 0;
             while (Time.time - startTime < 10 * Minute)
             {
                 try
                 {
-                    var isUpdated = await ControlEventsForSession(
+                    var (isUpdated, controlEventsStatusCode) = await ControlEventsForSession(
                         hash, _currentSessionId, _determinedSessionId);
                     if (isUpdated)
                     {
                         return DRMStatusCode.Success;
+                    } if (controlEventsStatusCode  == DRMStatusCode.MinaNodeError)
+                    {
+                        retryCount++;
+                        if (retryCount > 3)
+                        {
+                            return DRMStatusCode.MinaNodeError;
+                        }
                     }
                 }
                 catch (Exception e)
                 {
                     Debug.Log(e);
                 }
+
                 Debug.Log("Ids not same waiting");
                 await Task.Delay(Minute);
             }
-        
+
             return DRMStatusCode.Timeout;
         }
 
@@ -115,10 +124,10 @@ namespace DRMinaUnityPackage
                 newSession = _determinedSessionId.ToString(),
                 gameId = DRMEnvironment.GameIDString
             };
-        
+
             var dataS = JsonConvert.SerializeObject(newRandomSession);
             var content = new StringContent(dataS, Encoding.UTF8, "application/json");
-        
+
             const int maxRetries = 5;
 
             for (var retry = 0; retry < maxRetries; retry++)
@@ -131,10 +140,12 @@ namespace DRMinaUnityPackage
                     {
                         throw new ApplicationException();
                     }
-                    if(response.StatusCode != HttpStatusCode.OK)
+
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new Exception("Server returned  status code.");
+                        throw new Exception("Server returned status code.");
                     }
+
                     return (true, DRMStatusCode.Success);
                 }
                 catch (Exception e)
@@ -146,6 +157,7 @@ namespace DRMinaUnityPackage
                         {
                             return (false, DRMStatusCode.ProverNotReady);
                         }
+
                         await Task.Delay(20 * Second);
                     }
                     else
@@ -157,37 +169,43 @@ namespace DRMinaUnityPackage
 
             return (false, DRMStatusCode.Timeout);
         }
+
         private static async Task<(int, DRMStatusCode)> GetCurrentSession(string hash)
         {
             var requestBody = new
             {
-                deviceHash = hash 
+                deviceHash = hash
             };
             var dataString = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(dataString, Encoding.UTF8, "application/json");
-        
-            const int maxRetries = 3;
-        
-            Debug.Log("Getting current session");
-        
+
+            const int maxRetries = 4;
+
             for (var retry = 0; retry < maxRetries; retry++)
             {
                 try
                 {
+                    Debug.Log("Getting Current Session");
                     var response = await Client.PostAsync(DRMEnvironment.ProverURL + "current-session", content);
-                    if (response.StatusCode == HttpStatusCode.Processing)
+                    if (response.StatusCode == HttpStatusCode.Processing) // code 102
                     {
-                        return (0, DRMStatusCode.ProverNotReady);
+                        throw new ApplicationException(); // Retry
                     }
-                    if(response.StatusCode != HttpStatusCode.OK)
+
+                    if (response.StatusCode != HttpStatusCode.OK)
                     {
                         return (0, DRMStatusCode.ProverError);
                     }
+
                     var responseData = await response.Content.ReadAsStringAsync();
-                    Debug.Log(responseData);
+                    Debug.Log("Response Data: " + responseData);
                     var responseJson = JObject.Parse(responseData);
-                    Debug.Log(responseJson["currentSession"].Value<int>());
-                    return (responseJson["currentSession"].Value<int>(), DRMStatusCode.Success);
+                    var currentSession = (responseJson["currentSession"] ?? throw new InvalidOperationException())
+                        .Value<int>();
+                    Debug.Log("Current Session: " + currentSession);
+                    return currentSession < 1
+                        ? (0, DRMStatusCode.GameNotBoughtOrNoConnection)
+                        : (currentSession, DRMStatusCode.Success);
                 }
                 catch (Exception e)
                 {
@@ -197,40 +215,51 @@ namespace DRMinaUnityPackage
                         {
                             return (0, DRMStatusCode.Timeout);
                         }
-                        await Task.Delay(Minute);
+
+                        Debug.Log("Prover is not ready, steady lads...");
+                        await Task.Delay(40 * Second);
                     }
                     else
                     {
-                        return (0, DRMStatusCode.Timeout);
+                        return (0, DRMStatusCode.GameNotBoughtOrNoConnection);
                     }
                 }
             }
+
             return (0, DRMStatusCode.Timeout);
         }
 
-        private static async Task<int> GetBlockHeight()
+        private static async Task<(int, DRMStatusCode)> GetBlockHeight()
         {
-            var request = new HttpRequestMessage
+            try
             {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri("https://devnet.api.minaexplorer.com/blocks?limit=1"),
-                Headers =
+                var request = new HttpRequestMessage
                 {
+                    Method = HttpMethod.Get,
+                    RequestUri = new Uri("https://devnet.api.minaexplorer.com/blocks?limit=1"),
+                    Headers =
+                    {
+                    }
+                };
 
-                }
-            };
+                var response = await Client.SendAsync(request);
 
-            var response = await Client.SendAsync(request);
-        
-            var responseString = await response.Content.ReadAsStringAsync();
-            var obj = JsonConvert.DeserializeObject<JObject>(responseString);
+                var responseString = await response.Content.ReadAsStringAsync();
+                var obj = JsonConvert.DeserializeObject<JObject>(responseString);
 
-            var blockHeight = obj["blocks"][0]["blockHeight"];
+                var blockHeight = obj["blocks"][0]["blockHeight"];
 
-            return (int)blockHeight;
+                return ((int)blockHeight, DRMStatusCode.Success);
+            }
+            catch (Exception e)
+            {
+                Debug.Log(e);
+                return (0, DRMStatusCode.MinaNodeError);
+            }
+
         }
 
-        private static async Task<bool> ControlEventsForSession(string hash, int prev, int current)
+        private static async Task<(bool, DRMStatusCode)> ControlEventsForSession(string hash, int prev, int current)
         {
             const string query = @"
 {
@@ -243,7 +272,12 @@ namespace DRMinaUnityPackage
   }
 }
 ";
-            var fromBlockNumber = (await GetBlockHeight() - 1).ToString();
+            var (currentBlockHeight, blockHeightStatusCode) = await GetBlockHeight();
+            if (currentBlockHeight < 1)
+            {
+                return (false, blockHeightStatusCode);
+            }
+            var fromBlockNumber = currentBlockHeight.ToString();
 
             var queryS = query.Replace("{input1}", DRMEnvironment.GameIDString).Replace("{input2}", fromBlockNumber);
 
@@ -255,33 +289,41 @@ namespace DRMinaUnityPackage
 
             for (var i = 0; i < maxRetries; i++)
             {
-                var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
-
-                var responseString = await response.Content.ReadAsStringAsync();
-                Debug.Log(responseString);
-        
-                var root = JsonConvert.DeserializeObject<RootObject>(responseString);
-            
-                foreach (var eventItem in root.Data.Events)
+                try
                 {
-                    foreach (var eventDataItem in eventItem.EventData)
+                    var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+
+                    var responseString = await response.Content.ReadAsStringAsync();
+                    Debug.Log(responseString);
+
+                    var root = JsonConvert.DeserializeObject<RootObject>(responseString);
+
+                    foreach (var eventItem in root.Data.Events)
                     {
-                        var deviceHash = eventDataItem.Data[0];
-                        var prevSession = eventDataItem.Data[1];
-                        var newSession = eventDataItem.Data[2];
-                        Debug.Log(deviceHash + " " +  prevSession + " " + newSession);
-                
-                        if (deviceHash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                        foreach (var eventDataItem in eventItem.EventData)
                         {
-                            return true;
+                            var deviceHash = eventDataItem.Data[0];
+                            var prevSession = eventDataItem.Data[1];
+                            var newSession = eventDataItem.Data[2];
+                            Debug.Log(deviceHash + " " + prevSession + " " + newSession);
+
+                            if (deviceHash == hash && prevSession == prev.ToString() && newSession == current.ToString())
+                            {
+                                return (true, DRMStatusCode.Success);
+                            }
                         }
                     }
+                } catch (Exception e)
+                {
+                    Debug.Log(e);
                 }
+
                 await Task.Delay(retryDelayMs);
             }
 
-            return false;
+            return (false, DRMStatusCode.Timeout);
         }
+
         public class RootObject
         {
             public Data Data { get; set; }
@@ -301,14 +343,13 @@ namespace DRMinaUnityPackage
         {
             public List<string> Data { get; set; }
         }
-    
+
         private static async Task<string> GetHash(IdentifierData data)
         {
             var device = new Device(data);
             var hash = await device.Hash();
             return hash;
         }
-
     }
 
     public enum DRMStatusCode
@@ -316,9 +357,9 @@ namespace DRMinaUnityPackage
         Success,
         ProverNotReady,
         ProverError,
-        NodeError,
         DeviceNotCompatible,
         Timeout,
-        GameNotBoughtOrNoConnection
+        GameNotBoughtOrNoConnection,
+        MinaNodeError,
     }
 }
