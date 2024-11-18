@@ -38,6 +38,11 @@ namespace DRMinaUnityPackage
 
         static async Task<DRMStatusCode> Run()
         {
+            if(DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null)
+            {
+                return DRMStatusCode.SetEnvironment;
+            }
+            
             _identifierData = new IdentifierData();
 
             try
@@ -60,8 +65,14 @@ namespace DRMinaUnityPackage
                 Debug.Log(e);
                 return DRMStatusCode.DeviceNotCompatible;
             }
-
-
+            
+            var (setAddressSuccess, setAddressStatusCode) = await SetProverAddress();
+            
+            if (!setAddressSuccess)
+            {
+                return setAddressStatusCode;
+            }
+            
             var (currentSession, currentSessionStatusCode) = await GetCurrentSession(hash);
             if (currentSession < 1)
             {
@@ -73,9 +84,9 @@ namespace DRMinaUnityPackage
 
             _determinedSessionId = Random.Range(2, int.MaxValue);
 
-            var (success, newSessionStatusCode) = await SendNewSession();
+            var (sendNewSessionSuccess, newSessionStatusCode) = await SendNewSession();
 
-            if (!success)
+            if (!sendNewSessionSuccess)
             {
                 return newSessionStatusCode;
             }
@@ -115,6 +126,52 @@ namespace DRMinaUnityPackage
             return DRMStatusCode.Timeout;
         }
 
+        private static async Task<(bool, DRMStatusCode)> SetProverAddress()
+        {
+            var requestBody = new
+            {
+                drmAddressB58 = DRMEnvironment.DRM_CONTRACT_ADDRESS,
+                gameTokenAddressB58 = DRMEnvironment.GAME_TOKEN_ADDRESS
+            };
+            
+            var dataString = JsonConvert.SerializeObject(requestBody);
+            var content = new StringContent(dataString, Encoding.UTF8, "application/json");
+            
+            const int maxRetries = 5;
+            
+            for (var retry = 0; retry < maxRetries; retry++)
+            {
+                try
+                {
+                    Debug.Log("Setting Prover Address");
+                    var response = await Client.PostAsync(DRMEnvironment.ProverURL + "set-address", content);
+                    if (response.StatusCode == HttpStatusCode.BadRequest)
+                    {
+                        throw new ApplicationException();
+                    }
+
+                    if (response.StatusCode != HttpStatusCode.OK)
+                    {
+                        throw new Exception("Server returned status code.");
+                    }
+
+                    return (true, DRMStatusCode.Continue);
+                }
+                catch (Exception e)
+                {
+                    if (e is ApplicationException)
+                    {
+                        Debug.Log("Server returned bad request");
+                        return (false, DRMStatusCode.SetEnvironment);
+                    }
+
+                    await Task.Delay(2 * Second);
+                }
+            }
+
+            return (false, DRMStatusCode.ProverError);
+        }
+
         private static async Task<(bool, DRMStatusCode)> SendNewSession()
         {
             var newRandomSession = new SessionData
@@ -122,7 +179,6 @@ namespace DRMinaUnityPackage
                 rawIdentifiers = _identifierData,
                 currentSession = _currentSessionId.ToString(),
                 newSession = _determinedSessionId.ToString(),
-                gameId = DRMEnvironment.GameIDString
             };
 
             var dataS = JsonConvert.SerializeObject(newRandomSession);
@@ -146,7 +202,7 @@ namespace DRMinaUnityPackage
                         throw new Exception("Server returned status code.");
                     }
 
-                    return (true, DRMStatusCode.Success);
+                    return (true, DRMStatusCode.Continue);
                 }
                 catch (Exception e)
                 {
@@ -205,7 +261,7 @@ namespace DRMinaUnityPackage
                     Debug.Log("Current Session: " + currentSession);
                     return currentSession < 1
                         ? (0, DRMStatusCode.GameNotBoughtOrNoConnection)
-                        : (currentSession, DRMStatusCode.Success);
+                        : (currentSession, DRMStatusCode.Continue);
                 }
                 catch (Exception e)
                 {
@@ -249,7 +305,7 @@ namespace DRMinaUnityPackage
 
                 var blockHeight = obj["blocks"][0]["blockHeight"];
 
-                return ((int)blockHeight, DRMStatusCode.Success);
+                return ((int)blockHeight, DRMStatusCode.Continue);
             }
             catch (Exception e)
             {
@@ -279,7 +335,7 @@ namespace DRMinaUnityPackage
             }
             var fromBlockNumber = currentBlockHeight.ToString();
 
-            var queryS = query.Replace("{input1}", DRMEnvironment.GameIDString).Replace("{input2}", fromBlockNumber);
+            var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS).Replace("{input2}", fromBlockNumber);
 
             var contentS = JsonConvert.SerializeObject(new { query = queryS });
             var content = new StringContent(contentS, Encoding.UTF8, "application/json");
@@ -354,6 +410,7 @@ namespace DRMinaUnityPackage
 
     public enum DRMStatusCode
     {
+        Continue,
         Success,
         ProverNotReady,
         ProverError,
@@ -361,5 +418,6 @@ namespace DRMinaUnityPackage
         Timeout,
         GameNotBoughtOrNoConnection,
         MinaNodeError,
+        SetEnvironment
     }
 }

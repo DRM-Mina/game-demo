@@ -13,6 +13,9 @@ using System.Collections.Generic;
 using DRMinaUnityPackage;
 using DRMinaUnityPackage.Scripts;
 
+// using DRMinaUnityPackage;
+// using DRMinaUnityPackage.Scripts;
+
 
 public class Authenticator : MonoBehaviour
 {
@@ -35,6 +38,14 @@ public class Authenticator : MonoBehaviour
 
     public async Task Run()
     {
+        Debug.Log(DRMEnvironment.GAME_TOKEN_ADDRESS);
+        Debug.Log(DRMEnvironment.DRM_CONTRACT_ADDRESS);
+        if(DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == "" || DRMEnvironment.GAME_TOKEN_ADDRESS == "")
+        {
+            textBar.Terminate("Please set the game token address and DRM contract address in the DRMEnvironment script.");
+            return;
+        }
+        
         await Task.Delay(500 + AnimationDelay);
 
         identifierData = new IdentifierData();
@@ -83,6 +94,22 @@ public class Authenticator : MonoBehaviour
             return;
         }
 
+        try
+        {
+            await Task.Delay(AnimationDelay);
+            textBar.UpdateText("Setting prover address...");
+            var result = await SetProverAddress();
+            if (!result)
+            {
+                textBar.Terminate();
+                return;
+            }
+            textBar.UpdateText("Prover address set.");
+        } catch (Exception e)
+        {
+            textBar.Terminate();
+            return;
+        }
 
         try
         {
@@ -188,7 +215,7 @@ public class Authenticator : MonoBehaviour
 ";
         var fromBlock = (await GetBlockHeight() - 1).ToString();
 
-        var queryS = query.Replace("{input1}", DRMEnvironment.GameIDString).Replace("{input2}", fromBlock);
+        var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS).Replace("{input2}", fromBlock);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         var content = new StringContent(contentS, Encoding.UTF8, "application/json");
@@ -296,6 +323,54 @@ public class Authenticator : MonoBehaviour
 
         return 0;
     }
+    
+    private static async Task<bool> SetProverAddress()
+    {
+        var requestBody = new
+        {
+            drmAddressB58 = DRMEnvironment.DRM_CONTRACT_ADDRESS,
+            gameTokenAddressB58 = DRMEnvironment.GAME_TOKEN_ADDRESS
+        };
+        
+        Debug.Log(JsonConvert.SerializeObject(requestBody));
+            
+        var dataString = JsonConvert.SerializeObject(requestBody);
+        var content = new StringContent(dataString, Encoding.UTF8, "application/json");
+            
+        const int maxRetries = 5;
+            
+        for (var retry = 0; retry < maxRetries; retry++)
+        {
+            try
+            {
+                var response = await Client.PostAsync(DRMEnvironment.ProverURL + "set-address", content);
+                if (response.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    throw new ApplicationException();
+                }
+
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    throw new Exception("Server returned status code.");
+                }
+
+                Debug.Log("Prover address set.");
+                return true;
+            }
+            catch (Exception e)
+            {
+                if (e is ApplicationException)
+                {
+                    Debug.Log("Server returned bad request");
+                    return false;
+                }
+
+                await Task.Delay(2 * Second);
+            }
+        }
+
+        return false;
+    }
 
     private async Task<bool> SendNewSession()
     {
@@ -304,7 +379,6 @@ public class Authenticator : MonoBehaviour
             rawIdentifiers = identifierData,
             currentSession = currentSessionId.ToString(),
             newSession = determinedSessionId.ToString(),
-            gameId = DRMEnvironment.GameIDString
         };
         
         var dataS = JsonConvert.SerializeObject(newRandomSession);

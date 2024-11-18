@@ -635,6 +635,14 @@ PrefabInstance:
       propertyPath: m_Name
       value: DRMAuthenticator
       objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: gameTokenAddress
+      value: B62qoCf7aTcRyTp5gE2ctjEzimEoET6o6YauCMN3Wog4QSEQGpRhVCs
+      objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: drmContractAddress
+      value: B62qmRpcfka2rcHpueg938hnFsZQ6RHf67hDuCQQ4PZE2dqgGfLyhiT
+      objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
