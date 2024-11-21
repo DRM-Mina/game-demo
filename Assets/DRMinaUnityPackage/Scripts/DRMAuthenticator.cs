@@ -96,7 +96,7 @@ namespace DRMinaUnityPackage
 
             var startTime = Time.time;
             var retryCount = 0;
-            while (Time.time - startTime < 10 * Minute)
+            while (Time.time - startTime < 15 * Minute)
             {
                 try
                 {
@@ -410,7 +410,6 @@ namespace DRMinaUnityPackage
 
     public enum DRMStatusCode
     {
-        Continue,
         Success,
         ProverNotReady,
         ProverError,
@@ -418,6 +417,7 @@ namespace DRMinaUnityPackage
         Timeout,
         GameNotBoughtOrNoConnection,
         MinaNodeError,
-        SetEnvironment
+        SetEnvironment,
+        Continue,
     }
 }

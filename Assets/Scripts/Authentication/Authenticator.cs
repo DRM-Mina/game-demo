@@ -19,6 +19,9 @@ using DRMinaUnityPackage.Scripts;
 
 public class Authenticator : MonoBehaviour
 {
+    public string gameTokenAddress;
+    public string drmContractAddress;
+    
     public TextBar textBar;
     private static readonly HttpClient Client = new();
     private int currentSessionId = -1;
@@ -33,6 +36,8 @@ public class Authenticator : MonoBehaviour
 
     private void Start()
     {
+        DRMEnvironment.GAME_TOKEN_ADDRESS = gameTokenAddress;
+        DRMEnvironment.DRM_CONTRACT_ADDRESS = drmContractAddress;
         Run();
     }
 

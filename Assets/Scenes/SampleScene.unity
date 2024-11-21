@@ -637,11 +637,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: gameTokenAddress
-      value: B62qoCf7aTcRyTp5gE2ctjEzimEoET6o6YauCMN3Wog4QSEQGpRhVCs
+      value: B62qitxXzCSz5KdzPGhKANhiGepdqNSuE7dMhD77RCiEKJfgn2oFwSu
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: drmContractAddress
-      value: B62qmRpcfka2rcHpueg938hnFsZQ6RHf67hDuCQQ4PZE2dqgGfLyhiT
+      value: B62qmSFqFLF8wbpGQYriJn13AwDDsCqPrSkbAJz5ZAHknAzDGgRFyMG
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.x
@@ -708,6 +708,14 @@ PrefabInstance:
       propertyPath: textBar
       value: 
       objectReference: {fileID: 1667985870}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: gameTokenAddress
+      value: B62qitxXzCSz5KdzPGhKANhiGepdqNSuE7dMhD77RCiEKJfgn2oFwSu
+      objectReference: {fileID: 0}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: drmContractAddress
+      value: B62qmSFqFLF8wbpGQYriJn13AwDDsCqPrSkbAJz5ZAHknAzDGgRFyMG
+      objectReference: {fileID: 0}
     - target: {fileID: 7165275997467438213, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
