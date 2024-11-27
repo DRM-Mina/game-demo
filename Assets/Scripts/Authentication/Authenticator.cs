@@ -293,7 +293,7 @@ public class Authenticator : MonoBehaviour
         {
             try
             {
-                var response = await Client.PostAsync(DRMEnvironment.ProverURL + "current-session", content);
+                var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT + "current-session", content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();
@@ -348,7 +348,7 @@ public class Authenticator : MonoBehaviour
         {
             try
             {
-                var response = await Client.PostAsync(DRMEnvironment.ProverURL + "set-address", content);
+                var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT + "set-address", content);
                 if (response.StatusCode == HttpStatusCode.BadRequest)
                 {
                     throw new ApplicationException();
@@ -396,7 +396,7 @@ public class Authenticator : MonoBehaviour
             try
             {
                 textBar.UpdateText("Sending New Session with ID: " + determinedSessionId);
-                var response = await Client.PostAsync(DRMEnvironment.ProverURL, content);
+                var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT, content);
                 if (response.StatusCode == HttpStatusCode.Processing)
                 {
                     throw new ApplicationException();

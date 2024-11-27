@@ -44,4 +44,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9ba217348b6584cdc8a983b40828a0a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  gameIDString: 
+  gameTokenAddress: TODO
+  drmContractAddress: TODO
+  proverEndpoint: http://127.0.0.1:4444/
+  proverMaxRetries: 5
+  proverRetryIntervalSeconds: 20
+  authTimeoutMinutes: 15

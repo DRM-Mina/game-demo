@@ -636,12 +636,28 @@ PrefabInstance:
       value: DRMAuthenticator
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: proverEndpoint
+      value: http://127.0.0.1:4444/
+      objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: gameTokenAddress
       value: B62qitxXzCSz5KdzPGhKANhiGepdqNSuE7dMhD77RCiEKJfgn2oFwSu
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: proverMaxRetries
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: authTimeoutMinutes
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: drmContractAddress
       value: B62qmSFqFLF8wbpGQYriJn13AwDDsCqPrSkbAJz5ZAHknAzDGgRFyMG
+      objectReference: {fileID: 0}
+    - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
+      propertyPath: proverRetryIntervalSeconds
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 7391315209540638952, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: m_LocalPosition.x

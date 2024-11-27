@@ -17,6 +17,8 @@ namespace DRMinaUnityPackage
         private static readonly HttpClient Client = new();
         private static int _currentSessionId = -1;
         private static int _determinedSessionId = -1;
+        
+        private static int _currentBlockHeight = -1;
 
         private const int Second = 1000;
         private const int Minute = 60000;
@@ -38,11 +40,11 @@ namespace DRMinaUnityPackage
 
         static async Task<DRMStatusCode> Run()
         {
-            if(DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null)
+            if (DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null)
             {
                 return DRMStatusCode.SetEnvironment;
             }
-            
+
             _identifierData = new IdentifierData();
 
             try
@@ -65,14 +67,22 @@ namespace DRMinaUnityPackage
                 Debug.Log(e);
                 return DRMStatusCode.DeviceNotCompatible;
             }
-            
+
             var (setAddressSuccess, setAddressStatusCode) = await SetProverAddress();
-            
+
             if (!setAddressSuccess)
             {
                 return setAddressStatusCode;
             }
             
+            var (currentBlockHeight, blockHeightStatusCode) = await GetBlockHeight();
+            if (currentBlockHeight < 1)
+            {
+                return blockHeightStatusCode;
+            }
+            
+            _currentBlockHeight = currentBlockHeight;
+
             var (currentSession, currentSessionStatusCode) = await GetCurrentSession(hash);
             if (currentSession < 1)
             {
@@ -96,7 +106,10 @@ namespace DRMinaUnityPackage
 
             var startTime = Time.time;
             var retryCount = 0;
-            while (Time.time - startTime < 15 * Minute)
+
+            var authTimeoutMinutes = DRMEnvironment.AUTH_TIMEOUT_MINUTES;
+
+            while (Time.time - startTime < authTimeoutMinutes * Minute)
             {
                 try
                 {
@@ -105,7 +118,9 @@ namespace DRMinaUnityPackage
                     if (isUpdated)
                     {
                         return DRMStatusCode.Success;
-                    } if (controlEventsStatusCode  == DRMStatusCode.MinaNodeError)
+                    }
+
+                    if (controlEventsStatusCode == DRMStatusCode.MinaNodeError)
                     {
                         retryCount++;
                         if (retryCount > 3)
@@ -133,18 +148,18 @@ namespace DRMinaUnityPackage
                 drmAddressB58 = DRMEnvironment.DRM_CONTRACT_ADDRESS,
                 gameTokenAddressB58 = DRMEnvironment.GAME_TOKEN_ADDRESS
             };
-            
+
             var dataString = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(dataString, Encoding.UTF8, "application/json");
-            
-            const int maxRetries = 5;
-            
+
+            var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+
             for (var retry = 0; retry < maxRetries; retry++)
             {
                 try
                 {
                     Debug.Log("Setting Prover Address");
-                    var response = await Client.PostAsync(DRMEnvironment.ProverURL + "set-address", content);
+                    var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT + "set-address", content);
                     if (response.StatusCode == HttpStatusCode.BadRequest)
                     {
                         throw new ApplicationException();
@@ -184,14 +199,15 @@ namespace DRMinaUnityPackage
             var dataS = JsonConvert.SerializeObject(newRandomSession);
             var content = new StringContent(dataS, Encoding.UTF8, "application/json");
 
-            const int maxRetries = 5;
+            var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+            var retryIntervalSeconds = DRMEnvironment.PROVER_RETRY_INTERVAL_SECONDS;
 
             for (var retry = 0; retry < maxRetries; retry++)
             {
                 try
                 {
                     Debug.Log("Sending New Session with ID: " + _determinedSessionId);
-                    var response = await Client.PostAsync(DRMEnvironment.ProverURL, content);
+                    var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT, content);
                     if (response.StatusCode == HttpStatusCode.Processing)
                     {
                         throw new ApplicationException();
@@ -214,7 +230,7 @@ namespace DRMinaUnityPackage
                             return (false, DRMStatusCode.ProverNotReady);
                         }
 
-                        await Task.Delay(20 * Second);
+                        await Task.Delay(retryIntervalSeconds * Second);
                     }
                     else
                     {
@@ -235,14 +251,15 @@ namespace DRMinaUnityPackage
             var dataString = JsonConvert.SerializeObject(requestBody);
             var content = new StringContent(dataString, Encoding.UTF8, "application/json");
 
-            const int maxRetries = 4;
+            var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+            var retryIntervalSeconds = DRMEnvironment.PROVER_RETRY_INTERVAL_SECONDS;
 
             for (var retry = 0; retry < maxRetries; retry++)
             {
                 try
                 {
                     Debug.Log("Getting Current Session");
-                    var response = await Client.PostAsync(DRMEnvironment.ProverURL + "current-session", content);
+                    var response = await Client.PostAsync(DRMEnvironment.PROVER_ENDPOINT + "current-session", content);
                     if (response.StatusCode == HttpStatusCode.Processing) // code 102
                     {
                         throw new ApplicationException(); // Retry
@@ -273,7 +290,7 @@ namespace DRMinaUnityPackage
                         }
 
                         Debug.Log("Prover is not ready, steady lads...");
-                        await Task.Delay(40 * Second);
+                        await Task.Delay(retryIntervalSeconds * Second);
                     }
                     else
                     {
@@ -312,7 +329,6 @@ namespace DRMinaUnityPackage
                 Debug.Log(e);
                 return (0, DRMStatusCode.MinaNodeError);
             }
-
         }
 
         private static async Task<(bool, DRMStatusCode)> ControlEventsForSession(string hash, int prev, int current)
@@ -328,53 +344,44 @@ namespace DRMinaUnityPackage
   }
 }
 ";
-            var (currentBlockHeight, blockHeightStatusCode) = await GetBlockHeight();
-            if (currentBlockHeight < 1)
-            {
-                return (false, blockHeightStatusCode);
-            }
-            var fromBlockNumber = currentBlockHeight.ToString();
+            
+            var fromBlockNumber = _currentBlockHeight.ToString();
 
-            var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS).Replace("{input2}", fromBlockNumber);
+            var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS)
+                .Replace("{input2}", fromBlockNumber);
 
             var contentS = JsonConvert.SerializeObject(new { query = queryS });
             var content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-            const int maxRetries = 3;
-            const int retryDelayMs = 15000;
-
-            for (var i = 0; i < maxRetries; i++)
+            try
             {
-                try
+                var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
+
+                var responseString = await response.Content.ReadAsStringAsync();
+                Debug.Log(responseString);
+
+                var root = JsonConvert.DeserializeObject<RootObject>(responseString);
+
+                foreach (var eventItem in root.Data.Events)
                 {
-                    var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
-
-                    var responseString = await response.Content.ReadAsStringAsync();
-                    Debug.Log(responseString);
-
-                    var root = JsonConvert.DeserializeObject<RootObject>(responseString);
-
-                    foreach (var eventItem in root.Data.Events)
+                    foreach (var eventDataItem in eventItem.EventData)
                     {
-                        foreach (var eventDataItem in eventItem.EventData)
-                        {
-                            var deviceHash = eventDataItem.Data[0];
-                            var prevSession = eventDataItem.Data[1];
-                            var newSession = eventDataItem.Data[2];
-                            Debug.Log(deviceHash + " " + prevSession + " " + newSession);
+                        var deviceHash = eventDataItem.Data[0];
+                        var prevSession = eventDataItem.Data[1];
+                        var newSession = eventDataItem.Data[2];
+                        Debug.Log(deviceHash + " " + prevSession + " " + newSession);
 
-                            if (deviceHash == hash && prevSession == prev.ToString() && newSession == current.ToString())
-                            {
-                                return (true, DRMStatusCode.Success);
-                            }
+                        if (deviceHash == hash && prevSession == prev.ToString() &&
+                            newSession == current.ToString())
+                        {
+                            return (true, DRMStatusCode.Success);
                         }
                     }
-                } catch (Exception e)
-                {
-                    Debug.Log(e);
                 }
-
-                await Task.Delay(retryDelayMs);
+            }
+            catch (Exception e)
+            {
+                Debug.Log(e);
             }
 
             return (false, DRMStatusCode.Timeout);
