@@ -17,7 +17,7 @@ namespace DRMinaUnityPackage
         private static readonly HttpClient Client = new();
         private static int _currentSessionId = -1;
         private static int _determinedSessionId = -1;
-        
+
         private static int _currentBlockHeight = -1;
 
         private const int Second = 1000;
@@ -74,13 +74,13 @@ namespace DRMinaUnityPackage
             {
                 return setAddressStatusCode;
             }
-            
+
             var (currentBlockHeight, blockHeightStatusCode) = await GetBlockHeight();
             if (currentBlockHeight < 1)
             {
                 return blockHeightStatusCode;
             }
-            
+
             _currentBlockHeight = currentBlockHeight;
 
             var (currentSession, currentSessionStatusCode) = await GetCurrentSession(hash);
@@ -344,10 +344,10 @@ namespace DRMinaUnityPackage
   }
 }
 ";
-            
+
             var fromBlockNumber = _currentBlockHeight.ToString();
 
-            var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS)
+            var queryS = query.Replace("{input1}", DRMEnvironment.DRM_CONTRACT_ADDRESS)
                 .Replace("{input2}", fromBlockNumber);
 
             var contentS = JsonConvert.SerializeObject(new { query = queryS });

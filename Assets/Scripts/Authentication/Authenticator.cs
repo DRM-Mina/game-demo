@@ -13,19 +13,22 @@ using System.Collections.Generic;
 using DRMinaUnityPackage;
 using DRMinaUnityPackage.Scripts;
 
-// using DRMinaUnityPackage;
-// using DRMinaUnityPackage.Scripts;
-
-
 public class Authenticator : MonoBehaviour
 {
     public string gameTokenAddress;
     public string drmContractAddress;
-    
+    public string proverEndpoint;
+    public int proverMaxRetries;
+    public int proverRetryIntervalSeconds;
+    public int authTimeoutMinutes;
+
     public TextBar textBar;
     private static readonly HttpClient Client = new();
+
     private int currentSessionId = -1;
     private int determinedSessionId = -1;
+
+    private static int _currentBlockHeight = -1;
 
     private const int Second = 1000;
     private const int Minute = 60000;
@@ -38,6 +41,10 @@ public class Authenticator : MonoBehaviour
     {
         DRMEnvironment.GAME_TOKEN_ADDRESS = gameTokenAddress;
         DRMEnvironment.DRM_CONTRACT_ADDRESS = drmContractAddress;
+        DRMEnvironment.PROVER_ENDPOINT = proverEndpoint;
+        DRMEnvironment.PROVER_MAX_RETRIES = proverMaxRetries;
+        DRMEnvironment.PROVER_RETRY_INTERVAL_SECONDS = proverRetryIntervalSeconds;
+        DRMEnvironment.AUTH_TIMEOUT_MINUTES = authTimeoutMinutes;
         Run();
     }
 
@@ -45,12 +52,14 @@ public class Authenticator : MonoBehaviour
     {
         Debug.Log(DRMEnvironment.GAME_TOKEN_ADDRESS);
         Debug.Log(DRMEnvironment.DRM_CONTRACT_ADDRESS);
-        if(DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == "" || DRMEnvironment.GAME_TOKEN_ADDRESS == "")
+        if (DRMEnvironment.GAME_TOKEN_ADDRESS == null || DRMEnvironment.DRM_CONTRACT_ADDRESS == null ||
+            DRMEnvironment.DRM_CONTRACT_ADDRESS == "" || DRMEnvironment.GAME_TOKEN_ADDRESS == "")
         {
-            textBar.Terminate("Please set the game token address and DRM contract address in the DRMEnvironment script.");
+            textBar.Terminate(
+                "Please set the game token address and DRM contract address in the DRMEnvironment script.");
             return;
         }
-        
+
         await Task.Delay(500 + AnimationDelay);
 
         identifierData = new IdentifierData();
@@ -67,20 +76,6 @@ public class Authenticator : MonoBehaviour
             textBar.Terminate();
             return;
         }
-
-        // await Task.Delay(500 + animationDelay);
-        // textBar.UpdateText("CPUID: " + data.cpuId);
-        // await Task.Delay(100 + animationDelay);
-        // textBar.UpdateText("Serial: " + data.systemSerial);
-        // await Task.Delay(100 + animationDelay);
-        // textBar.UpdateText("UUID: " + data.systemUUID);
-        // await Task.Delay(100 + animationDelay);
-        // textBar.UpdateText("Baseboard: " + data.baseboardSerial);
-        // await Task.Delay(100 + animationDelay);
-        // textBar.UpdateText("MAC1: " + data.macAddress[0]);
-        // await Task.Delay(100 + animationDelay);
-        // textBar.UpdateText("MAC2: " + data.macAddress[1]);
-        // await Task.Delay(100 + animationDelay);
 
         var hash = "";
         try
@@ -109,8 +104,30 @@ public class Authenticator : MonoBehaviour
                 textBar.Terminate();
                 return;
             }
+
             textBar.UpdateText("Prover address set.");
-        } catch (Exception e)
+        }
+        catch (Exception e)
+        {
+            textBar.Terminate();
+            return;
+        }
+
+        try
+        {
+            await Task.Delay(AnimationDelay);
+            textBar.UpdateText("Getting current block height...");
+            _currentBlockHeight = await GetBlockHeight();
+            Debug.Log(_currentBlockHeight);
+            if (_currentBlockHeight <= 0)
+            {
+                Debug.Log("Block height is not valid.");
+                throw new Exception();
+            }
+
+            textBar.UpdateText("Current block height: " + _currentBlockHeight);
+        }
+        catch (Exception e)
         {
             textBar.Terminate();
             return;
@@ -120,14 +137,14 @@ public class Authenticator : MonoBehaviour
         {
             await Task.Delay(AnimationDelay);
             textBar.UpdateText("Getting current session...");
-            
+
             currentSessionId = await GetCurrentSession(hash);
             if (currentSessionId <= 0)
             {
                 Debug.Log("Game is not bought.");
                 throw new Exception();
             }
-            
+
             textBar.UpdateText("Current session ID: " + currentSessionId);
         }
         catch (Exception e)
@@ -135,7 +152,7 @@ public class Authenticator : MonoBehaviour
             textBar.Terminate();
             return;
         }
-        
+
         await Task.Delay(AnimationDelay);
         determinedSessionId = Random.Range(2, int.MaxValue);
         textBar.UpdateText("Sending New Session with ID: " + determinedSessionId);
@@ -157,7 +174,8 @@ public class Authenticator : MonoBehaviour
         textBar.UpdateText("Start to fetching events from Mina");
         textBar.StartTimer(600);
         var startTime = Time.time;
-        while(Time.time - startTime < 10 * Minute)
+
+        while (Time.time - startTime < authTimeoutMinutes * Minute)
         {
             textBar.UpdateText("Getting Current Session...");
             try
@@ -175,10 +193,12 @@ public class Authenticator : MonoBehaviour
             {
                 Debug.Log(e);
             }
+
             await Task.Delay(AnimationDelay);
             textBar.UpdateText("ID is not same. Retrying...");
             await Task.Delay(Minute);
         }
+
         textBar.UpdateText("Sowwy we cannot found :(");
         textBar.EndTimer();
     }
@@ -191,12 +211,11 @@ public class Authenticator : MonoBehaviour
             RequestUri = new Uri("https://devnet.api.minaexplorer.com/blocks?limit=1"),
             Headers =
             {
-
             }
         };
 
         var response = await Client.SendAsync(request);
-        
+
         var responseString = await response.Content.ReadAsStringAsync();
         var obj = JsonConvert.DeserializeObject<JObject>(responseString);
 
@@ -218,25 +237,23 @@ public class Authenticator : MonoBehaviour
   }
 }
 ";
-        var fromBlock = (await GetBlockHeight() - 1).ToString();
+        var fromBlock = _currentBlockHeight.ToString();
+        Debug.Log(fromBlock);
 
-        var queryS = query.Replace("{input1}", DRMEnvironment.GAME_TOKEN_ADDRESS).Replace("{input2}", fromBlock);
+        var queryS = query.Replace("{input1}", DRMEnvironment.DRM_CONTRACT_ADDRESS).Replace("{input2}", fromBlock);
 
         var contentS = JsonConvert.SerializeObject(new { query = queryS });
         var content = new StringContent(contentS, Encoding.UTF8, "application/json");
 
-        const int maxRetries = 3;
-        const int retryDelayMs = 2000;
-
-        for (var i = 0; i < maxRetries; i++)
+        try
         {
             var response = await Client.PostAsync("https://api.minascan.io/archive/devnet/v1/graphql", content);
 
             var responseString = await response.Content.ReadAsStringAsync();
             Debug.Log(responseString);
-        
+
             var root = JsonConvert.DeserializeObject<RootObject>(responseString);
-            
+
             foreach (var eventItem in root.Data.Events)
             {
                 foreach (var eventDataItem in eventItem.EventData)
@@ -244,20 +261,23 @@ public class Authenticator : MonoBehaviour
                     var deviceHash = eventDataItem.Data[0];
                     var prevSession = eventDataItem.Data[1];
                     var newSession = eventDataItem.Data[2];
-                    Debug.Log(deviceHash + " " +  prevSession + " " + newSession);
-                
+                    Debug.Log(deviceHash + " " + prevSession + " " + newSession);
+
                     if (deviceHash == hash && prevSession == prev.ToString() && newSession == current.ToString())
                     {
                         return true;
                     }
                 }
             }
-            
-            await Task.Delay(retryDelayMs);
+        }
+        catch (Exception e)
+        {
+            Debug.Log(e);
         }
 
         return false;
     }
+
     public class RootObject
     {
         public Data Data { get; set; }
@@ -282,12 +302,13 @@ public class Authenticator : MonoBehaviour
     {
         var requestBody = new
         {
-            deviceHash = hash 
+            deviceHash = hash
         };
         var dataString = JsonConvert.SerializeObject(requestBody);
         var content = new StringContent(dataString, Encoding.UTF8, "application/json");
-        
-        const int maxRetries = 3;
+
+        var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+        var retryIntervalSeconds = DRMEnvironment.PROVER_RETRY_INTERVAL_SECONDS;
 
         for (var retry = 0; retry < maxRetries; retry++)
         {
@@ -298,10 +319,12 @@ public class Authenticator : MonoBehaviour
                 {
                     throw new ApplicationException();
                 }
-                if(response.StatusCode != HttpStatusCode.OK)
+
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
                     throw new Exception("Server returned status code.");
                 }
+
                 var responseData = await response.Content.ReadAsStringAsync();
                 Debug.Log(responseData);
                 var responseJson = JObject.Parse(responseData);
@@ -317,7 +340,8 @@ public class Authenticator : MonoBehaviour
                     {
                         return 0;
                     }
-                    await Task.Delay(Minute);
+
+                    await Task.Delay(retryIntervalSeconds * Second);
                 }
                 else
                 {
@@ -328,7 +352,7 @@ public class Authenticator : MonoBehaviour
 
         return 0;
     }
-    
+
     private static async Task<bool> SetProverAddress()
     {
         var requestBody = new
@@ -336,14 +360,14 @@ public class Authenticator : MonoBehaviour
             drmAddressB58 = DRMEnvironment.DRM_CONTRACT_ADDRESS,
             gameTokenAddressB58 = DRMEnvironment.GAME_TOKEN_ADDRESS
         };
-        
+
         Debug.Log(JsonConvert.SerializeObject(requestBody));
-            
+
         var dataString = JsonConvert.SerializeObject(requestBody);
         var content = new StringContent(dataString, Encoding.UTF8, "application/json");
-            
-        const int maxRetries = 5;
-            
+
+        var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+
         for (var retry = 0; retry < maxRetries; retry++)
         {
             try
@@ -385,11 +409,13 @@ public class Authenticator : MonoBehaviour
             currentSession = currentSessionId.ToString(),
             newSession = determinedSessionId.ToString(),
         };
-        
+
         var dataS = JsonConvert.SerializeObject(newRandomSession);
         var content = new StringContent(dataS, Encoding.UTF8, "application/json");
-        
-        const int maxRetries = 5;
+
+        var maxRetries = DRMEnvironment.PROVER_MAX_RETRIES;
+        var retryIntervalSeconds = DRMEnvironment.PROVER_RETRY_INTERVAL_SECONDS;
+
 
         for (var retry = 0; retry < maxRetries; retry++)
         {
@@ -401,10 +427,12 @@ public class Authenticator : MonoBehaviour
                 {
                     throw new ApplicationException();
                 }
-                if(response.StatusCode != HttpStatusCode.OK)
+
+                if (response.StatusCode != HttpStatusCode.OK)
                 {
                     throw new Exception("Server returned  status code.");
                 }
+
                 return true;
             }
             catch (Exception e)
@@ -417,11 +445,13 @@ public class Authenticator : MonoBehaviour
                         textBar.Terminate();
                         return false;
                     }
-                    await Task.Delay(20 * Second);
+
+                    await Task.Delay(retryIntervalSeconds * Second);
                 }
                 else
                 {
-                    textBar.Terminate("Your device may not be compatible with our prover, or your internet connection is down. Please try again later.");
+                    textBar.Terminate(
+                        "Your device may not be compatible with our prover, or your internet connection is down. Please try again later.");
                     return false;
                 }
             }
@@ -429,11 +459,11 @@ public class Authenticator : MonoBehaviour
 
         return false;
     }
+
     private static async Task<string> GetHash(IdentifierData data)
     {
         var device = new Device(data);
         var hash = await device.Hash();
         return hash;
     }
-    
 }

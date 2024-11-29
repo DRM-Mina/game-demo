@@ -641,7 +641,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: gameTokenAddress
-      value: B62qitxXzCSz5KdzPGhKANhiGepdqNSuE7dMhD77RCiEKJfgn2oFwSu
+      value: B62qnddkpwSvKLNcpUUchdW1AemQ72DTNaxyiUE9TKqEJcoQpM2fDrM
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: proverMaxRetries
@@ -653,7 +653,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: drmContractAddress
-      value: B62qmSFqFLF8wbpGQYriJn13AwDDsCqPrSkbAJz5ZAHknAzDGgRFyMG
+      value: B62qjDofX5d8Z8Lp7HKZjT7yDgRXH2aDMK76n2orUSFJat6umgZyUMS
       objectReference: {fileID: 0}
     - target: {fileID: 4762923797917079271, guid: a47f84192327d4afeb293c613dfeec73, type: 3}
       propertyPath: proverRetryIntervalSeconds
@@ -725,12 +725,28 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1667985870}
     - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: proverEndpoint
+      value: http://127.0.0.1:4444/
+      objectReference: {fileID: 0}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: gameTokenAddress
-      value: B62qitxXzCSz5KdzPGhKANhiGepdqNSuE7dMhD77RCiEKJfgn2oFwSu
+      value: B62qnddkpwSvKLNcpUUchdW1AemQ72DTNaxyiUE9TKqEJcoQpM2fDrM
+      objectReference: {fileID: 0}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: proverMaxRetries
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: authTimeoutMinutes
+      value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: drmContractAddress
-      value: B62qmSFqFLF8wbpGQYriJn13AwDDsCqPrSkbAJz5ZAHknAzDGgRFyMG
+      value: B62qjDofX5d8Z8Lp7HKZjT7yDgRXH2aDMK76n2orUSFJat6umgZyUMS
+      objectReference: {fileID: 0}
+    - target: {fileID: 7104444961774393592, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
+      propertyPath: proverRetryIntervalSeconds
+      value: 20
       objectReference: {fileID: 0}
     - target: {fileID: 7165275997467438213, guid: 48a3c24790f084be3bbe87fe6c6c1359, type: 3}
       propertyPath: m_LocalPosition.x
